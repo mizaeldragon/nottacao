@@ -22,7 +22,20 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
+const origensPermitidas = [
+  process.env.FRONTEND_URL,
+  'https://nottacao.vercel.app',
+  'https://nottacao.com.br',
+  'https://www.nottacao.com.br',
+  'http://localhost:5173',
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || origensPermitidas.includes(origin)) return cb(null, true);
+    cb(new Error('CORS: origem não permitida'));
+  },
+}));
 app.use(express.json({ limit: '5mb' })); // imagens de produto vão em base64
 
 // Healthcheck
