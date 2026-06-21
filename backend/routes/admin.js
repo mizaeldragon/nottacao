@@ -66,7 +66,7 @@ router.get('/resumo', superAuth, async (req, res) => {
 router.get('/tenants', superAuth, async (req, res) => {
   try {
     const { rows } = await query(
-      `SELECT t.id, t.nome, t.email, t.telefone, t.status, t.created_at,
+      `SELECT t.id, t.nome, t.email, t.telefone, t.status, t.created_at, t.trial_expira_em,
               (SELECT COUNT(*) FROM usuarios u WHERE u.tenant_id = t.id) AS usuarios,
               COALESCE((SELECT SUM(valor) FROM lancamentos WHERE tenant_id = t.id), 0)
               + COALESCE((SELECT SUM(valor_total) FROM movimentos_estoque
@@ -87,17 +87,17 @@ router.get('/tenants', superAuth, async (req, res) => {
   }
 });
 
-// PATCH /api/admin/tenants/:id/status — ativa, bloqueia ou torna pendente
+// PATCH /api/admin/tenants/:id/status — ativa (com data de expiração opcional), bloqueia ou pendente
 router.patch('/tenants/:id/status', superAuth, async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, trial_expira_em } = req.body;
   if (!['ativo', 'bloqueado', 'pendente'].includes(status)) {
     return res.status(400).json({ error: 'Status inválido' });
   }
   try {
     const { rowCount } = await query(
-      `UPDATE tenants SET status = $1 WHERE id = $2`,
-      [status, id]
+      `UPDATE tenants SET status = $1, trial_expira_em = $2 WHERE id = $3`,
+      [status, trial_expira_em || null, id]
     );
     if (rowCount === 0) return res.status(404).json({ error: 'Borracharia não encontrada' });
     res.json({ ok: true });

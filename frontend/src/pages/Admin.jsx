@@ -76,6 +76,7 @@ function AdminPainel({ onLogout }) {
   const [erro, setErro] = useState('');
   const [msg, setMsg] = useState('');
   const [acao, setAcao] = useState(null); // { tenant, novoStatus } | { tenant, excluir: true }
+  const [trialData, setTrialData] = useState(''); // data de expiração ao ativar
 
   function carregar() {
     return Promise.all([adminApi.get('/resumo'), adminApi.get('/tenants')])
@@ -101,11 +102,15 @@ function AdminPainel({ onLogout }) {
         await adminApi.delete(`/tenants/${acao.tenant.id}`);
         setMsg(`"${acao.tenant.nome}" excluída.`);
       } else {
-        await adminApi.patch(`/tenants/${acao.tenant.id}/status`, { status: acao.novoStatus });
+        await adminApi.patch(`/tenants/${acao.tenant.id}/status`, {
+          status: acao.novoStatus,
+          trial_expira_em: acao.novoStatus === 'ativo' ? trialData || null : null,
+        });
         const labels = { ativo: 'ativada', bloqueado: 'bloqueada', pendente: 'marcada como pendente' };
         setMsg(`"${acao.tenant.nome}" ${labels[acao.novoStatus]}.`);
       }
       setAcao(null);
+      setTrialData('');
       await carregar();
     } catch (err) {
       setErro(err.response?.data?.error || 'Erro ao executar ação');
@@ -149,14 +154,30 @@ function AdminPainel({ onLogout }) {
                 <p className="text-gray-300 text-sm mb-5">
                   Excluir <strong>{acao.tenant.nome}</strong> permanentemente? Todos os dados serão perdidos.
                 </p>
+              ) : acao.novoStatus === 'ativo' ? (
+                <div className="mb-5">
+                  <p className="text-gray-300 text-sm mb-4">
+                    Ativar <strong>{acao.tenant.nome}</strong>? O acesso será liberado imediatamente.
+                  </p>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">
+                    Desativar automaticamente em (opcional)
+                  </label>
+                  <input
+                    type="date"
+                    value={trialData}
+                    onChange={e => setTrialData(e.target.value)}
+                    min={new Date().toISOString().slice(0, 10)}
+                    className="w-full h-10 bg-gray-700 border border-gray-600 rounded-lg px-3 text-sm outline-none focus:border-emerald-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Deixe em branco para ativar sem data de expiração.</p>
+                </div>
               ) : (
                 <p className="text-gray-300 text-sm mb-5">
-                  {acao.novoStatus === 'ativo' && <>Ativar <strong>{acao.tenant.nome}</strong>? O acesso será liberado imediatamente.</>}
-                  {acao.novoStatus === 'bloqueado' && <>Bloquear <strong>{acao.tenant.nome}</strong>? O acesso será suspenso.</>}
+                  Bloquear <strong>{acao.tenant.nome}</strong>? O acesso será suspenso.
                 </p>
               )}
               <div className="flex gap-3 justify-end">
-                <button onClick={() => setAcao(null)}
+                <button onClick={() => { setAcao(null); setTrialData(''); }}
                   className="h-10 px-4 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium">
                   Cancelar
                 </button>
@@ -189,6 +210,7 @@ function AdminPainel({ onLogout }) {
                   <th className="py-2 pr-4">STATUS</th>
                   <th className="py-2 pr-4">USUÁRIOS</th>
                   <th className="py-2 pr-4 text-right">FATURAMENTO</th>
+                  <th className="py-2 pr-4 text-right">EXPIRA EM</th>
                   <th className="py-2 pr-4 text-right">DESDE</th>
                   <th className="py-2 text-right">AÇÕES</th>
                 </tr>
@@ -210,6 +232,11 @@ function AdminPainel({ onLogout }) {
                         </td>
                         <td className="py-3 pr-4 text-gray-300">{t.usuarios}</td>
                         <td className="py-3 pr-4 text-right font-semibold">{brl(t.faturamento)}</td>
+                        <td className="py-3 pr-4 text-right">
+                          {t.trial_expira_em
+                            ? <span className={`text-xs font-semibold ${new Date(t.trial_expira_em) < new Date() ? 'text-red-400' : 'text-yellow-400'}`}>{dataBR(t.trial_expira_em)}</span>
+                            : <span className="text-gray-600">—</span>}
+                        </td>
                         <td className="py-3 pr-4 text-right text-gray-400">{dataBR(t.created_at)}</td>
                         <td className="py-3 text-right">
                           <div className="inline-flex items-center gap-1">

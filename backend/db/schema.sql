@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 -- Colunas de dados da empresa adicionadas após o schema inicial.
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS telefone VARCHAR(30);
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS documento VARCHAR(30);
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS trial_expira_em DATE;
 
 CREATE TABLE IF NOT EXISTS usuarios (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

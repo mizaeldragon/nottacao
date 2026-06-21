@@ -64,6 +64,21 @@ cron.schedule('0 7 * * 6', () => {
   gerarRelatoriosTodos().catch(err => console.error('[CRON] Falha geral:', err));
 }, { timezone: 'America/Sao_Paulo' });
 
+// Cron: todo dia às 00:05 bloqueia tenants com trial vencido
+cron.schedule('5 0 * * *', async () => {
+  try {
+    const { rowCount } = await query(
+      `UPDATE tenants SET status = 'bloqueado'
+       WHERE status = 'ativo'
+         AND trial_expira_em IS NOT NULL
+         AND trial_expira_em < CURRENT_DATE`
+    );
+    if (rowCount > 0) console.log(`[CRON] ${rowCount} tenant(s) bloqueado(s) por trial vencido.`);
+  } catch (err) {
+    console.error('[CRON] Erro ao bloquear trials vencidos:', err);
+  }
+}, { timezone: 'America/Sao_Paulo' });
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
