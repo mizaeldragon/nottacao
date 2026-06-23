@@ -228,11 +228,26 @@ function ClienteModal({ cliente, onClose, onSalvo }) {
   );
 }
 
+const FORMAS_PAG = [
+  { id: 'dinheiro', label: 'Dinheiro' },
+  { id: 'pix', label: 'Pix' },
+  { id: 'cartao', label: 'Cartão' },
+];
+
 function ContasModal({ cliente, onClose, onMudou }) {
   const [contas, setContas] = useState([]);
   const [erro, setErro] = useState('');
-  const [pagando, setPagando] = useState(null); // conta sendo paga
-  const [valor, setValor] = useState('');
+  const [msg, setMsg] = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  // Abono global
+  const [valorAbono, setValorAbono] = useState('');
+  const [formaAbono, setFormaAbono] = useState('dinheiro');
+
+  // Pagamento individual por item
+  const [pagandoId, setPagandoId] = useState(null);
+  const [valorItem, setValorItem] = useState('');
+  const [formaItem, setFormaItem] = useState('dinheiro');
 
   async function carregar() {
     try {
@@ -242,79 +257,169 @@ function ContasModal({ cliente, onClose, onMudou }) {
       setErro(err.response?.data?.error || 'Erro ao carregar');
     }
   }
-  useEffect(() => {
-    carregar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { carregar(); }, []); // eslint-disable-line
 
-  async function receber(conta) {
-    setErro('');
-    const v = Number(valor);
+  async function receberAbono(e) {
+    e.preventDefault();
+    setErro(''); setMsg('');
+    const v = Number(valorAbono);
     if (!v || v <= 0) return setErro('Informe um valor válido');
+    setSalvando(true);
     try {
-      await api.post(`/clientes/contas/${conta.id}/pagar`, { valor: v });
-      setPagando(null);
-      setValor('');
+      const { data } = await api.post(`/clientes/${cliente.id}/pagar-abono`, { valor: v, forma_pagamento: formaAbono });
+      setValorAbono('');
+      if (data.troco > 0) setMsg(`Pago ${brl(data.pago)}. Troco: ${brl(data.troco)}`);
+      else setMsg(`${brl(data.pago)} recebido com sucesso.`);
+      await carregar();
+      onMudou();
+    } catch (err) {
+      setErro(err.response?.data?.error || 'Erro ao registrar');
+    } finally {
+      setSalvando(false);
+      setTimeout(() => setMsg(''), 4000);
+    }
+  }
+
+  async function receberItem(conta) {
+    setErro(''); setMsg('');
+    const v = Number(valorItem);
+    if (!v || v <= 0) return setErro('Informe um valor válido');
+    setSalvando(true);
+    try {
+      await api.post(`/clientes/contas/${conta.id}/pagar`, { valor: v, forma_pagamento: formaItem });
+      setPagandoId(null);
+      setValorItem('');
       await carregar();
       onMudou();
     } catch (err) {
       setErro(err.response?.data?.error || 'Erro ao receber');
+    } finally {
+      setSalvando(false);
     }
   }
 
   const abertas = contas.filter((c) => c.status === 'aberto');
+  const totalAberto = abertas.reduce((s, c) => s + (Number(c.valor) - Number(c.valor_pago)), 0);
 
   return (
     <Modal titulo={`Fiado — ${cliente.nome}`} onClose={onClose}>
-      {erro && <p className="text-red-400 text-sm mb-2">{erro}</p>}
+      {/* Resumo do saldo */}
+      {totalAberto > 0 ? (
+        <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-orange-400 uppercase tracking-wide">Total em aberto</p>
+            <p className="text-2xl font-bold text-orange-400">{brl(totalAberto)}</p>
+          </div>
+          <Wallet size={28} className="text-orange-500/50" />
+        </div>
+      ) : contas.length > 0 ? (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
+          <Check size={20} className="text-emerald-400 shrink-0" />
+          <p className="text-sm font-semibold text-emerald-400">Tudo quitado — sem dívidas em aberto</p>
+        </div>
+      ) : null}
+
+      {erro && <p className="text-red-400 text-sm mb-3 bg-red-500/10 rounded-lg px-3 py-2">{erro}</p>}
+      {msg && <p className="text-emerald-400 text-sm mb-3 bg-emerald-500/10 rounded-lg px-3 py-2">{msg}</p>}
+
+      {/* Formulário de abono — só mostra se tiver abertas */}
+      {abertas.length > 0 && (
+        <form onSubmit={receberAbono} className="bg-gray-900 rounded-xl p-4 mb-4 space-y-3">
+          <p className="text-sm font-semibold text-gray-300">Receber abono / pagamento parcial</p>
+          <p className="text-xs text-gray-500">O valor é distribuído pelas contas mais antigas primeiro.</p>
+          <div className="flex gap-2">
+            {FORMAS_PAG.map((f) => (
+              <button key={f.id} type="button" onClick={() => setFormaAbono(f.id)}
+                className={`flex-1 h-9 rounded-lg text-xs font-semibold transition-colors ${formaAbono === f.id ? 'bg-orange-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="number" step="0.01" inputMode="decimal"
+              value={valorAbono} onChange={(e) => setValorAbono(e.target.value)}
+              placeholder={`Valor (máx. ${totalAberto.toFixed(2)})`}
+              className="flex-1 h-10 bg-gray-700 border border-gray-600 rounded-lg px-3 text-sm outline-none focus:border-orange-500"
+            />
+            <button type="button" onClick={() => setValorAbono(totalAberto.toFixed(2))}
+              className="h-10 px-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs font-semibold text-gray-300 whitespace-nowrap">
+              Quitar tudo
+            </button>
+          </div>
+          <button type="submit" disabled={salvando || !valorAbono}
+            className="w-full h-10 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+            <Wallet size={15} /> Registrar recebimento
+          </button>
+        </form>
+      )}
+
+      {/* Lista de contas */}
       {contas.length === 0 ? (
         <p className="text-gray-500 text-sm text-center py-6">Sem contas de fiado.</p>
       ) : (
-        <div className="space-y-2 max-h-80 overflow-y-auto">
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Histórico de contas</p>
           {contas.map((c) => {
-            const restante = Number(c.valor) - Number(c.valor_pago);
+            const restante = Math.max(0, Number(c.valor) - Number(c.valor_pago));
+            const pct = Math.min(100, (Number(c.valor_pago) / Number(c.valor)) * 100);
+            const quitado = c.status === 'pago';
             return (
-              <div key={c.id} className="bg-gray-900 rounded-lg p-3">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{c.descricao || 'Fiado'}</p>
-                    <p className="text-xs text-gray-500">{dataBR(c.created_at)}</p>
+              <div key={c.id} className={`rounded-xl p-3 border ${quitado ? 'bg-gray-900/50 border-gray-700/40' : 'bg-gray-900 border-gray-700'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm font-medium truncate ${quitado ? 'text-gray-500' : ''}`}>{c.descricao || 'Fiado'}</p>
+                    <p className="text-xs text-gray-600">{dataBR(c.created_at)}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-bold">{brl(c.valor)}</p>
-                    {c.status === 'pago' ? (
-                      <span className="text-xs font-semibold text-emerald-400">Pago</span>
+                    <p className={`font-bold text-sm ${quitado ? 'text-gray-500' : ''}`}>{brl(c.valor)}</p>
+                    {quitado ? (
+                      <span className="text-xs font-semibold text-emerald-500">Pago</span>
                     ) : (
-                      <span className="text-xs text-orange-500">Resta {brl(restante)}</span>
+                      <span className="text-xs text-orange-400 font-semibold">Resta {brl(restante)}</span>
                     )}
                   </div>
                 </div>
-                {c.status === 'aberto' && (
-                  pagando === c.id ? (
-                    <div className="flex items-center gap-2 mt-2">
-                      <input
-                        type="number"
-                        step="0.01"
-                        inputMode="decimal"
-                        autoFocus
-                        value={valor}
-                        onChange={(e) => setValor(e.target.value)}
-                        placeholder={restante.toFixed(2)}
-                        className="h-9 flex-1 bg-gray-700 border border-gray-600 rounded-lg px-2 text-sm outline-none focus:border-orange-500"
-                      />
-                      <button onClick={() => receber(c)} className="h-9 px-3 rounded-lg bg-orange-500 hover:bg-orange-600 text-sm font-semibold">
-                        Receber
-                      </button>
-                      <button onClick={() => { setPagando(null); setValor(''); }} className="text-gray-500 hover:text-gray-300">
-                        <X size={16} />
-                      </button>
+
+                {/* Barra de progresso */}
+                {Number(c.valor_pago) > 0 && (
+                  <div className="mt-2 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${quitado ? 'bg-emerald-500' : 'bg-orange-500'}`} style={{ width: `${pct}%` }} />
+                  </div>
+                )}
+
+                {/* Pagar item individualmente */}
+                {!quitado && (
+                  pagandoId === c.id ? (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex gap-1.5">
+                        {FORMAS_PAG.map((f) => (
+                          <button key={f.id} type="button" onClick={() => setFormaItem(f.id)}
+                            className={`flex-1 h-7 rounded-lg text-xs font-semibold ${formaItem === f.id ? 'bg-orange-500 text-white' : 'bg-gray-700 text-gray-400'}`}>
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number" step="0.01" inputMode="decimal" autoFocus
+                          value={valorItem} onChange={(e) => setValorItem(e.target.value)}
+                          placeholder={restante.toFixed(2)}
+                          className="h-9 flex-1 bg-gray-700 border border-gray-600 rounded-lg px-2 text-sm outline-none focus:border-orange-500"
+                        />
+                        <button onClick={() => receberItem(c)} disabled={salvando}
+                          className="h-9 px-3 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-sm font-semibold">
+                          OK
+                        </button>
+                        <button onClick={() => { setPagandoId(null); setValorItem(''); }} className="text-gray-500 hover:text-gray-300 p-1">
+                          <X size={15} />
+                        </button>
+                      </div>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => { setPagando(c.id); setValor(String(restante.toFixed(2))); }}
-                      className="mt-2 w-full h-9 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm font-medium inline-flex items-center justify-center gap-1"
-                    >
-                      <Wallet size={14} /> Receber pagamento
+                    <button onClick={() => { setPagandoId(c.id); setValorItem(restante.toFixed(2)); setFormaItem('dinheiro'); }}
+                      className="mt-2 w-full h-8 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs font-medium text-gray-400 hover:text-gray-200 transition-colors">
+                      Pagar este item individualmente
                     </button>
                   )
                 )}
@@ -322,9 +427,6 @@ function ContasModal({ cliente, onClose, onMudou }) {
             );
           })}
         </div>
-      )}
-      {abertas.length === 0 && contas.length > 0 && (
-        <p className="text-emerald-400 text-sm text-center mt-3">Tudo quitado ✓</p>
       )}
     </Modal>
   );

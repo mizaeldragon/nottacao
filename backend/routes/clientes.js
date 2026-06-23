@@ -94,10 +94,9 @@ router.get('/:id/contas', async (req, res) => {
   }
 });
 
-// POST /api/clientes/contas/:contaId/pagar — recebe (parte de) um fiado
-// body: { valor, forma_pagamento } -> entra no caixa (exige caixa aberto)
+// POST /api/clientes/contas/:contaId/pagar — recebe (parte de) um fiado específico
 router.post('/contas/:contaId/pagar', async (req, res) => {
-  const { valor } = req.body;
+  const { valor, forma_pagamento } = req.body;
   if (!valor || Number(valor) <= 0) return res.status(400).json({ error: 'Valor inválido' });
 
   const client = await pool.connect();
@@ -131,11 +130,14 @@ router.post('/contas/:contaId/pagar', async (req, res) => {
       return res.status(400).json({ error: 'Abra o caixa para receber o pagamento' });
     }
 
-    // Entra no caixa como suprimento (dinheiro entrando), com motivo claro
+    const FORMAS = ['pix', 'cartao', 'dinheiro'];
+    const forma = FORMAS.includes(forma_pagamento) ? forma_pagamento : 'dinheiro';
+    const motivo = `Recebimento fiado — ${conta.cliente_nome}`;
+
     await client.query(
-      `INSERT INTO movimentos_caixa (caixa_id, tipo, valor, motivo)
-       VALUES ($1, 'suprimento', $2, $3)`,
-      [caixa.rows[0].id, pago, `Recebimento fiado — ${conta.cliente_nome}`]
+      `INSERT INTO movimentos_caixa (caixa_id, tipo, valor, motivo, forma_pagamento)
+       VALUES ($1, 'suprimento', $2, $3, $4)`,
+      [caixa.rows[0].id, pago, motivo, forma]
     );
 
     const novoPago = Math.round((Number(conta.valor_pago) + pago) * 100) / 100;
@@ -151,6 +153,83 @@ router.post('/contas/:contaId/pagar', async (req, res) => {
     await client.query('ROLLBACK');
     console.error(err);
     res.status(500).json({ error: 'Erro ao registrar recebimento' });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/clientes/:id/pagar-abono — recebe um valor total e distribui pelas contas abertas (mais antigas primeiro)
+router.post('/:id/pagar-abono', async (req, res) => {
+  const { valor, forma_pagamento } = req.body;
+  if (!valor || Number(valor) <= 0) return res.status(400).json({ error: 'Valor inválido' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const clienteRes = await client.query(
+      `SELECT nome FROM clientes WHERE id = $1 AND tenant_id = $2 AND ativo = true`,
+      [req.params.id, req.user.tenant_id]
+    );
+    if (clienteRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Cliente não encontrado' });
+    }
+    const nomeCliente = clienteRes.rows[0].nome;
+
+    const contasRes = await client.query(
+      `SELECT * FROM contas_receber
+       WHERE tenant_id = $1 AND cliente_id = $2 AND status = 'aberto'
+       ORDER BY created_at ASC FOR UPDATE`,
+      [req.user.tenant_id, req.params.id]
+    );
+    if (contasRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Nenhuma conta em aberto' });
+    }
+
+    const caixa = await client.query(
+      `SELECT id FROM caixa_dia WHERE tenant_id = $1 AND status = 'aberto' LIMIT 1`,
+      [req.user.tenant_id]
+    );
+    if (caixa.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Abra o caixa para receber o pagamento' });
+    }
+
+    const FORMAS = ['pix', 'cartao', 'dinheiro'];
+    const forma = FORMAS.includes(forma_pagamento) ? forma_pagamento : 'dinheiro';
+    let restanteAbono = Number(valor);
+    let totalPago = 0;
+
+    for (const conta of contasRes.rows) {
+      if (restanteAbono <= 0) break;
+      const deveNaConta = Number(conta.valor) - Number(conta.valor_pago);
+      const pagar = Math.min(restanteAbono, deveNaConta);
+      const novoPago = Math.round((Number(conta.valor_pago) + pagar) * 100) / 100;
+      const status = novoPago >= Number(conta.valor) - 0.01 ? 'pago' : 'aberto';
+      await client.query(
+        `UPDATE contas_receber SET valor_pago = $1, status = $2 WHERE id = $3`,
+        [novoPago, status, conta.id]
+      );
+      restanteAbono = Math.round((restanteAbono - pagar) * 100) / 100;
+      totalPago = Math.round((totalPago + pagar) * 100) / 100;
+    }
+
+    if (totalPago > 0) {
+      await client.query(
+        `INSERT INTO movimentos_caixa (caixa_id, tipo, valor, motivo, forma_pagamento)
+         VALUES ($1, 'suprimento', $2, $3, $4)`,
+        [caixa.rows[0].id, totalPago, `Abono fiado — ${nomeCliente}`, forma]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ ok: true, pago: totalPago, troco: Math.max(0, Number(valor) - totalPago) });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao registrar abono' });
   } finally {
     client.release();
   }

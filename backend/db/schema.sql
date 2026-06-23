@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS movimentos_caixa (
   motivo TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
+ALTER TABLE movimentos_caixa ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR(20);
 
 CREATE TABLE IF NOT EXISTS lancamentos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
