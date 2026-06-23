@@ -17,6 +17,8 @@ async function montarResumo(caixa, tenantId) {
     [caixa.id]
   );
   const lancamentos = lancRes.rows;
+  // Fiado não entra no caixa agora; será contabilizado quando o cliente pagar
+  const lancamentosFinanceiros = lancamentos.filter((l) => l.forma_pagamento !== 'fiado');
 
   const movRes = await query(
     `SELECT * FROM movimentos_caixa WHERE caixa_id = $1 ORDER BY created_at`,
@@ -34,9 +36,9 @@ async function montarResumo(caixa, tenantId) {
   );
   const estoque = estRes.rows;
 
-  const totalServicos = lancamentos.reduce((s, l) => s + Number(l.valor), 0);
-  const totalFuncionarios = lancamentos.reduce((s, l) => s + Number(l.valor_funcionario), 0);
-  const totalPatrao = lancamentos.reduce((s, l) => s + Number(l.valor_patrao), 0);
+  const totalServicos = lancamentosFinanceiros.reduce((s, l) => s + Number(l.valor), 0);
+  const totalFuncionarios = lancamentosFinanceiros.reduce((s, l) => s + Number(l.valor_funcionario), 0);
+  const totalPatrao = lancamentosFinanceiros.reduce((s, l) => s + Number(l.valor_patrao), 0);
 
   // Agrupa por funcionário: qtd de serviços + comissão (valor_funcionario)
   const porFuncionarioMap = {};
@@ -78,7 +80,7 @@ async function montarResumo(caixa, tenantId) {
       if (porForma[p.forma] !== undefined) porForma[p.forma] += Number(p.valor) || 0;
     }
   }
-  for (const l of lancamentos) {
+  for (const l of lancamentosFinanceiros) {
     if (l.forma_pagamento && porForma[l.forma_pagamento] !== undefined) {
       porForma[l.forma_pagamento] += Number(l.valor) || 0;
     }

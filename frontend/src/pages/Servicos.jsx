@@ -75,6 +75,7 @@ export default function Servicos() {
     setErro('');
     if (!funcionarioId) return setErro('Selecione o funcionário');
     if (!valor || Number(valor) <= 0) return setErro('Informe um valor válido');
+    if (formaPagamento === 'fiado' && !clienteId) return setErro('Selecione o cliente fiado para lançar no fiado');
 
     if (formaPagamento === 'misto') {
       const soma = pagamentosMisto.reduce((s, p) => s + (Number(p.valor) || 0), 0);
@@ -215,6 +216,7 @@ export default function Servicos() {
                   { id: 'cartao', label: 'Cartão' },
                   { id: 'dinheiro', label: 'Dinheiro' },
                   { id: 'misto', label: 'Misto' },
+                  { id: 'fiado', label: 'Fiado' },
                 ].map((f) => (
                   <button
                     key={f.id}
@@ -389,10 +391,10 @@ export default function Servicos() {
 
             <button
               type="submit"
-              disabled={salvando || !caixaAberto}
+              disabled={salvando || (!caixaAberto && formaPagamento !== 'fiado')}
               className="w-full h-10 flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 rounded-lg font-semibold transition-colors text-sm"
             >
-              <Plus size={18} /> Lançar Serviço
+              <Plus size={18} /> {formaPagamento === 'fiado' ? 'Lançar no Fiado' : 'Lançar Serviço'}
             </button>
           </form>
         </div>

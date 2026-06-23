@@ -38,19 +38,22 @@ router.post('/', async (req, res) => {
 
   if (!funcionario_id) return res.status(400).json({ error: 'Funcionário é obrigatório' });
   if (!valor || Number(valor) <= 0) return res.status(400).json({ error: 'Valor inválido' });
-  const FORMAS_VALIDAS = ['pix', 'cartao', 'dinheiro', 'misto'];
+  const FORMAS_VALIDAS = ['pix', 'cartao', 'dinheiro', 'misto', 'fiado'];
   const forma = FORMAS_VALIDAS.includes(forma_pagamento) ? forma_pagamento : null;
+  const eFiado = forma === 'fiado';
+  if (eFiado && !cliente_id) return res.status(400).json({ error: 'Selecione o cliente fiado' });
   const pagamentosJson = forma === 'misto' && Array.isArray(pagamentos) ? JSON.stringify(pagamentos) : null;
 
   try {
-    // Precisa de um caixa aberto
+    // Fiado não exige caixa aberto (dinheiro não entra agora)
     const caixa = await query(
       `SELECT id FROM caixa_dia WHERE tenant_id = $1 AND status = 'aberto' LIMIT 1`,
       [req.user.tenant_id]
     );
-    if (caixa.rows.length === 0) {
+    if (!eFiado && caixa.rows.length === 0) {
       return res.status(400).json({ error: 'Abra o caixa antes de lançar serviços' });
     }
+    const caixaId = caixa.rows[0]?.id || null;
 
     // Resolve nome + percentual do funcionário a partir do tipo de serviço.
     // Serviço avulso (sem tipo) cai no padrão 50/50.
@@ -95,7 +98,7 @@ router.post('/', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
       [
         req.user.tenant_id,
-        caixa.rows[0].id,
+        caixaId,
         funcionario_id,
         tipo_servico_id || null,
         nomeFinal || 'Serviço',
@@ -111,12 +114,28 @@ router.post('/', async (req, res) => {
       ]
     );
 
+    const lancamento = rows[0];
+
+    // Quando fiado, cria conta a receber na nota do cliente
+    if (eFiado && clienteIdValido) {
+      await query(
+        `INSERT INTO contas_receber (tenant_id, cliente_id, lancamento_id, descricao, valor)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          req.user.tenant_id,
+          clienteIdValido,
+          lancamento.id,
+          `Serviço fiado: ${nomeFinal || 'Serviço'}`,
+          total,
+        ]
+      );
+    }
+
     // Retorna já com o nome do funcionário para exibir no card
     const func = await query(`SELECT nome FROM funcionarios WHERE id = $1`, [funcionario_id]);
-    const lanc = rows[0];
-    lanc.funcionario_nome = func.rows[0]?.nome || null;
+    lancamento.funcionario_nome = func.rows[0]?.nome || null;
 
-    res.status(201).json(lanc);
+    res.status(201).json(lancamento);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao lançar serviço' });

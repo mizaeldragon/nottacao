@@ -196,6 +196,7 @@ CREATE TABLE IF NOT EXISTS contas_receber (
   status VARCHAR(20) DEFAULT 'aberto', -- aberto | pago
   created_at TIMESTAMP DEFAULT NOW()
 );
+ALTER TABLE contas_receber ADD COLUMN IF NOT EXISTS lancamento_id UUID REFERENCES lancamentos(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_contas_cliente ON contas_receber(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_contas_tenant ON contas_receber(tenant_id);
 
