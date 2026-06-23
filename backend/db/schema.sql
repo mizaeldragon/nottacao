@@ -109,6 +109,7 @@ ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS veiculo VARCHAR(120);
 ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS placa VARCHAR(20);
 ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR(20);
 ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS pagamentos JSONB; -- [{forma, valor}] para pagamento misto
+ALTER TABLE lancamentos ADD COLUMN IF NOT EXISTS cliente_id UUID REFERENCES clientes(id) ON DELETE SET NULL;
 
 -- Produtos vendidos pela borracharia (catálogo + estoque atual)
 CREATE TABLE IF NOT EXISTS produtos (

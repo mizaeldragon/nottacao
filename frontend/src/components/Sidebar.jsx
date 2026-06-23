@@ -9,7 +9,7 @@ const NAV = [
   { to: '/servicos',   label: 'Serviços',         icon: Wrench },
   { to: '/caixa',      label: 'Caixa',            icon: DollarSign },
   { to: '/estoque',    label: 'Vendas & Estoque', icon: ShoppingCart, alerta: 'estoque' },
-  { to: '/clientes',   label: 'Clientes',         icon: UserSquare },
+  { to: '/clientes',   label: 'Clientes Fiado',   icon: UserSquare },
   { to: '/historico',  label: 'Relatório',        icon: History },
   { to: '/relatorio-ia', label: 'Relatório IA',    icon: Sparkles, soAdmin: true },
   { to: '/financeiro',  label: 'Financeiro',       icon: PiggyBank, soAdmin: true },

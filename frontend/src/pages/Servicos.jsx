@@ -24,7 +24,11 @@ export default function Servicos() {
   const [funcionarioId, setFuncionarioId] = useState('');
   const [tipoId, setTipoId] = useState('');
   const [valor, setValor] = useState('');
+  const [clienteId, setClienteId] = useState('');
   const [clienteNome, setClienteNome] = useState('');
+  const [clientesBusca, setClientesBusca] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [showClienteList, setShowClienteList] = useState(false);
   const [veiculo, setVeiculo] = useState('');
   const [placa, setPlaca] = useState('');
   const [formaPagamento, setFormaPagamento] = useState('dinheiro');
@@ -38,16 +42,18 @@ export default function Servicos() {
 
   async function carregar() {
     try {
-      const [f, t, l, c] = await Promise.all([
+      const [f, t, l, c, cl] = await Promise.all([
         api.get('/funcionarios'),
         api.get('/tipos-servico'),
         api.get('/lancamentos'),
         api.get('/caixa/atual'),
+        api.get('/clientes'),
       ]);
       setFuncionarios(f.data.filter((x) => x.ativo));
       setTipos(t.data.filter((x) => x.ativo));
       setLancamentos(l.data);
       setCaixaAberto(!!c.data);
+      setClientes(cl.data || []);
     } catch (err) {
       setErro(err.response?.data?.error || 'Erro ao carregar dados');
     }
@@ -85,6 +91,7 @@ export default function Servicos() {
         tipo_servico_id: tipoId || null,
         nome_servico: tipo?.nome,
         valor: Number(valor),
+        cliente_id: clienteId || undefined,
         cliente_nome: clienteNome,
         veiculo,
         placa,
@@ -94,7 +101,9 @@ export default function Servicos() {
       setLancamentos((prev) => [data, ...prev]);
       setValor('');
       setTipoId('');
+      setClienteId('');
       setClienteNome('');
+      setClientesBusca([]);
       setVeiculo('');
       setPlaca('');
     } catch (err) {
@@ -276,14 +285,59 @@ export default function Servicos() {
 
             {/* Ordem de serviço (opcional) */}
             <div className="grid grid-cols-2 gap-2">
-              <div className="col-span-2">
-                <label className="block text-xs text-gray-400 mb-1">Cliente (opcional)</label>
+              <div className="col-span-2 relative">
+                <label className="block text-xs text-gray-400 mb-1">
+                  Cliente fiado (opcional)
+                  {clienteId && <span className="ml-2 text-orange-400 font-semibold">· cadastrado</span>}
+                </label>
                 <input
                   value={clienteNome}
-                  onChange={(e) => setClienteNome(e.target.value)}
-                  placeholder="Nome do cliente"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setClienteNome(v);
+                    setClienteId('');
+                    if (v.length >= 1) {
+                      const filtro = clientes.filter((c) =>
+                        c.nome.toLowerCase().includes(v.toLowerCase())
+                      );
+                      setClientesBusca(filtro.slice(0, 6));
+                      setShowClienteList(true);
+                    } else {
+                      setClientesBusca([]);
+                      setShowClienteList(false);
+                    }
+                  }}
+                  onFocus={() => {
+                    if (clienteNome.length >= 1) setShowClienteList(true);
+                  }}
+                  onBlur={() => setTimeout(() => setShowClienteList(false), 150)}
+                  placeholder="Nome do cliente ou busque no cadastro"
                   className="w-full h-9 bg-gray-700 border border-gray-600 rounded-lg px-3 outline-none focus:border-orange-500 text-sm"
                 />
+                {showClienteList && clientesBusca.length > 0 && (
+                  <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-xl overflow-hidden">
+                    {clientesBusca.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onMouseDown={() => {
+                          setClienteId(c.id);
+                          setClienteNome(c.nome);
+                          setClientesBusca([]);
+                          setShowClienteList(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-700 flex items-center justify-between"
+                      >
+                        <span className="font-medium">{c.nome}</span>
+                        {c.saldo_devedor > 0 && (
+                          <span className="text-xs text-red-400 font-semibold">
+                            Deve {brl(c.saldo_devedor)}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Veículo (opcional)</label>

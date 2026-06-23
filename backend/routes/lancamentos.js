@@ -33,7 +33,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/lancamentos — lança um serviço (divisão pelo percentual do tipo, padrão 50/50)
 router.post('/', async (req, res) => {
-  const { funcionario_id, tipo_servico_id, nome_servico, valor, cliente_nome, veiculo, placa, forma_pagamento, pagamentos } =
+  const { funcionario_id, tipo_servico_id, nome_servico, valor, cliente_nome, cliente_id, veiculo, placa, forma_pagamento, pagamentos } =
     req.body;
 
   if (!funcionario_id) return res.status(400).json({ error: 'Funcionário é obrigatório' });
@@ -73,19 +73,34 @@ router.post('/', async (req, res) => {
     const valorFuncionario = Math.round(total * (percentualFunc / 100) * 100) / 100;
     const valorPatrao = Math.round((total - valorFuncionario) * 100) / 100;
 
+    // Se veio cliente_id, busca o nome do cadastro
+    let nomeCliente = cliente_nome?.trim() || null;
+    let clienteIdValido = null;
+    if (cliente_id) {
+      const cl = await query(
+        `SELECT id, nome FROM clientes WHERE id = $1 AND tenant_id = $2 AND ativo = true`,
+        [cliente_id, req.user.tenant_id]
+      );
+      if (cl.rows.length > 0) {
+        clienteIdValido = cl.rows[0].id;
+        if (!nomeCliente) nomeCliente = cl.rows[0].nome;
+      }
+    }
+
     const { rows } = await query(
       `INSERT INTO lancamentos
         (tenant_id, caixa_id, funcionario_id, tipo_servico_id, nome_servico,
-         cliente_nome, veiculo, placa, forma_pagamento, pagamentos,
+         cliente_id, cliente_nome, veiculo, placa, forma_pagamento, pagamentos,
          valor, valor_funcionario, valor_patrao)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
       [
         req.user.tenant_id,
         caixa.rows[0].id,
         funcionario_id,
         tipo_servico_id || null,
         nomeFinal || 'Serviço',
-        cliente_nome?.trim() || null,
+        clienteIdValido,
+        nomeCliente,
         veiculo?.trim() || null,
         placa?.trim()?.toUpperCase() || null,
         forma,
