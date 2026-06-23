@@ -24,8 +24,9 @@ export default function Servicos() {
   const [funcionarioId, setFuncionarioId] = useState('');
   const [tipoId, setTipoId] = useState('');
   const [valor, setValor] = useState('');
-  const [clienteId, setClienteId] = useState('');
   const [clienteNome, setClienteNome] = useState('');
+  const [clienteId, setClienteId] = useState('');
+  const [clienteFiadoTexto, setClienteFiadoTexto] = useState('');
   const [clientesBusca, setClientesBusca] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [showClienteList, setShowClienteList] = useState(false);
@@ -101,8 +102,9 @@ export default function Servicos() {
       setLancamentos((prev) => [data, ...prev]);
       setValor('');
       setTipoId('');
-      setClienteId('');
       setClienteNome('');
+      setClienteId('');
+      setClienteFiadoTexto('');
       setClientesBusca([]);
       setVeiculo('');
       setPlaca('');
@@ -285,22 +287,33 @@ export default function Servicos() {
 
             {/* Ordem de serviço (opcional) */}
             <div className="grid grid-cols-2 gap-2">
+              {/* Cliente comum — texto livre */}
+              <div className="col-span-2">
+                <label className="block text-xs text-gray-400 mb-1">Cliente (opcional)</label>
+                <input
+                  value={clienteNome}
+                  onChange={(e) => setClienteNome(e.target.value)}
+                  placeholder="Nome do cliente"
+                  className="w-full h-9 bg-gray-700 border border-gray-600 rounded-lg px-3 outline-none focus:border-orange-500 text-sm"
+                />
+              </div>
+
+              {/* Cliente fiado — autocomplete do cadastro */}
               <div className="col-span-2 relative">
                 <label className="block text-xs text-gray-400 mb-1">
                   Cliente fiado (opcional)
-                  {clienteId && <span className="ml-2 text-orange-400 font-semibold">· cadastrado</span>}
+                  {clienteId && <span className="ml-2 text-orange-400 font-semibold">· vinculado</span>}
                 </label>
                 <input
-                  value={clienteNome}
+                  value={clienteFiadoTexto}
                   onChange={(e) => {
                     const v = e.target.value;
-                    setClienteNome(v);
+                    setClienteFiadoTexto(v);
                     setClienteId('');
                     if (v.length >= 1) {
-                      const filtro = clientes.filter((c) =>
+                      setClientesBusca(clientes.filter((c) =>
                         c.nome.toLowerCase().includes(v.toLowerCase())
-                      );
-                      setClientesBusca(filtro.slice(0, 6));
+                      ).slice(0, 6));
                       setShowClienteList(true);
                     } else {
                       setClientesBusca([]);
@@ -308,11 +321,16 @@ export default function Servicos() {
                     }
                   }}
                   onFocus={() => {
-                    if (clienteNome.length >= 1) setShowClienteList(true);
+                    if (clienteFiadoTexto.length >= 1) {
+                      setClientesBusca(clientes.filter((c) =>
+                        c.nome.toLowerCase().includes(clienteFiadoTexto.toLowerCase())
+                      ).slice(0, 6));
+                      setShowClienteList(true);
+                    }
                   }}
                   onBlur={() => setTimeout(() => setShowClienteList(false), 150)}
-                  placeholder="Nome do cliente ou busque no cadastro"
-                  className="w-full h-9 bg-gray-700 border border-gray-600 rounded-lg px-3 outline-none focus:border-orange-500 text-sm"
+                  placeholder="Buscar cliente fiado cadastrado..."
+                  className={`w-full h-9 bg-gray-700 border rounded-lg px-3 outline-none focus:border-orange-500 text-sm ${clienteId ? 'border-orange-500/60' : 'border-gray-600'}`}
                 />
                 {showClienteList && clientesBusca.length > 0 && (
                   <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-xl overflow-hidden">
@@ -322,7 +340,7 @@ export default function Servicos() {
                         type="button"
                         onMouseDown={() => {
                           setClienteId(c.id);
-                          setClienteNome(c.nome);
+                          setClienteFiadoTexto(c.nome);
                           setClientesBusca([]);
                           setShowClienteList(false);
                         }}
@@ -330,9 +348,7 @@ export default function Servicos() {
                       >
                         <span className="font-medium">{c.nome}</span>
                         {c.saldo_devedor > 0 && (
-                          <span className="text-xs text-red-400 font-semibold">
-                            Deve {brl(c.saldo_devedor)}
-                          </span>
+                          <span className="text-xs text-red-400 font-semibold">Deve {brl(c.saldo_devedor)}</span>
                         )}
                       </button>
                     ))}
