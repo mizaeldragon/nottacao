@@ -183,6 +183,7 @@ CREATE TABLE IF NOT EXISTS vendas (
 ALTER TABLE movimentos_estoque ADD COLUMN IF NOT EXISTS venda_id UUID REFERENCES vendas(id);
 ALTER TABLE vendas ADD COLUMN IF NOT EXISTS cliente_id UUID REFERENCES clientes(id);
 ALTER TABLE vendas ADD COLUMN IF NOT EXISTS fiado BOOLEAN DEFAULT false;
+ALTER TABLE vendas ADD COLUMN IF NOT EXISTS lancamento_id UUID REFERENCES lancamentos(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_vendas_caixa ON vendas(caixa_id);
 
 -- Contas a receber (fiado): uma por venda fiado; baixa quando o cliente paga

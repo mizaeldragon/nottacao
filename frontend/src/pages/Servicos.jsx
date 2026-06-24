@@ -31,6 +31,11 @@ export default function Servicos() {
   const [clientes, setClientes] = useState([]);
   const [showClienteList, setShowClienteList] = useState(false);
   const [veiculo, setVeiculo] = useState('');
+  // Produtos vendidos junto com o serviço
+  const [produtos, setProdutos] = useState([]);
+  const [todosProdutos, setTodosProdutos] = useState([]);
+  const [buscaProduto, setBuscaProduto] = useState('');
+  const [showProdList, setShowProdList] = useState(false);
   const [placa, setPlaca] = useState('');
   const [formaPagamento, setFormaPagamento] = useState('dinheiro');
   const [pagamentosMisto, setPagamentosMisto] = useState([
@@ -55,6 +60,8 @@ export default function Servicos() {
       setLancamentos(l.data);
       setCaixaAberto(!!c.data);
       setClientes(cl.data || []);
+      const prod = await api.get('/estoque');
+      setTodosProdutos((prod.data || []).filter((p) => p.ativo && p.quantidade > 0));
     } catch (err) {
       setErro(err.response?.data?.error || 'Erro ao carregar dados');
     }
@@ -95,6 +102,9 @@ export default function Servicos() {
         valor: Number(valor),
         cliente_id: clienteId || undefined,
         cliente_nome: clienteNome,
+        produtos: produtos.length > 0 ? produtos.map((p) => ({
+          produto_id: p.id, quantidade: p.quantidade, preco_venda: p.preco_venda,
+        })) : undefined,
         veiculo,
         placa,
         forma_pagamento: formaPagamento,
@@ -107,6 +117,8 @@ export default function Servicos() {
       setClienteId('');
       setClienteFiadoTexto('');
       setClientesBusca([]);
+      setProdutos([]);
+      setBuscaProduto('');
       setVeiculo('');
       setPlaca('');
     } catch (err) {
@@ -375,6 +387,76 @@ export default function Servicos() {
                   className="w-full h-9 bg-gray-700 border border-gray-600 rounded-lg px-3 outline-none focus:border-orange-500 text-sm uppercase"
                 />
               </div>
+            </div>
+
+            {/* Produtos vendidos junto com o serviço */}
+            <div className="relative">
+              <label className="block text-xs text-gray-400 mb-1">Produtos utilizados/vendidos (opcional)</label>
+              <input
+                value={buscaProduto}
+                onChange={(e) => {
+                  setBuscaProduto(e.target.value);
+                  setShowProdList(e.target.value.length >= 1);
+                }}
+                onFocus={() => { if (buscaProduto.length >= 1) setShowProdList(true); }}
+                onBlur={() => setTimeout(() => setShowProdList(false), 150)}
+                placeholder="Buscar produto por nome..."
+                className="w-full h-9 bg-gray-700 border border-gray-600 rounded-lg px-3 outline-none focus:border-orange-500 text-sm"
+              />
+              {showProdList && (
+                <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-xl overflow-hidden max-h-44 overflow-y-auto">
+                  {todosProdutos
+                    .filter((p) => p.nome.toLowerCase().includes(buscaProduto.toLowerCase()))
+                    .slice(0, 8)
+                    .map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onMouseDown={() => {
+                          if (!produtos.find((x) => x.id === p.id)) {
+                            setProdutos([...produtos, { ...p, quantidade: 1, preco_venda: Number(p.preco_venda) }]);
+                          }
+                          setBuscaProduto('');
+                          setShowProdList(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-700 flex items-center justify-between"
+                      >
+                        <span className="font-medium">{p.nome}</span>
+                        <span className="text-xs text-gray-400">{brl(p.preco_venda)} · estq: {p.quantidade}</span>
+                      </button>
+                    ))}
+                  {todosProdutos.filter((p) => p.nome.toLowerCase().includes(buscaProduto.toLowerCase())).length === 0 && (
+                    <p className="px-3 py-2 text-xs text-gray-500">Nenhum produto encontrado</p>
+                  )}
+                </div>
+              )}
+
+              {/* Itens adicionados */}
+              {produtos.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {produtos.map((p, i) => (
+                    <div key={p.id} className="flex items-center gap-2 bg-gray-700/60 border border-gray-700 rounded-lg px-2.5 py-1.5">
+                      <span className="flex-1 text-sm font-medium truncate">{p.nome}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => setProdutos(produtos.map((x, j) => j === i ? { ...x, quantidade: Math.max(1, x.quantidade - 1) } : x))}
+                          className="w-6 h-6 rounded bg-gray-600 hover:bg-gray-500 text-sm font-bold flex items-center justify-center">−</button>
+                        <span className="w-6 text-center text-sm font-semibold">{p.quantidade}</span>
+                        <button type="button" onClick={() => setProdutos(produtos.map((x, j) => j === i ? { ...x, quantidade: Math.min(x.quantidade + 1, x.quantidade_estoque ?? 999) } : x))}
+                          className="w-6 h-6 rounded bg-gray-600 hover:bg-gray-500 text-sm font-bold flex items-center justify-center">+</button>
+                      </div>
+                      <span className="text-sm font-bold text-orange-400 w-20 text-right shrink-0">{brl(p.preco_venda * p.quantidade)}</span>
+                      <button type="button" onClick={() => setProdutos(produtos.filter((_, j) => j !== i))}
+                        className="text-red-500 hover:text-red-400 p-0.5 shrink-0">
+                        <Plus size={13} className="rotate-45" />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center px-1 pt-0.5">
+                    <span className="text-xs text-gray-400">Total produtos</span>
+                    <span className="text-sm font-bold text-orange-400">{brl(produtos.reduce((s, p) => s + p.preco_venda * p.quantidade, 0))}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Divisão estimada */}
