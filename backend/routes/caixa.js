@@ -201,7 +201,7 @@ router.post('/abrir', async (req, res) => {
 
 // POST /api/caixa/movimento — sangria ou suprimento (com suporte a vale de funcionário)
 router.post('/movimento', async (req, res) => {
-  const { tipo, valor, motivo, funcionario_id } = req.body;
+  const { tipo, valor, motivo, funcionario_id, forma_pagamento } = req.body;
   if (!['sangria', 'suprimento'].includes(tipo)) {
     return res.status(400).json({ error: 'Tipo deve ser sangria ou suprimento' });
   }
@@ -231,10 +231,13 @@ router.post('/movimento', async (req, res) => {
       }
     }
 
+    const FORMAS_VALIDAS = ['pix', 'cartao_credito', 'cartao_debito', 'dinheiro'];
+    const forma = FORMAS_VALIDAS.includes(forma_pagamento) ? forma_pagamento : null;
+
     const { rows } = await query(
-      `INSERT INTO movimentos_caixa (caixa_id, tipo, valor, motivo, funcionario_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [caixa.rows[0].id, tipo, valor, motivoFinal, funcId]
+      `INSERT INTO movimentos_caixa (caixa_id, tipo, valor, motivo, funcionario_id, forma_pagamento)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [caixa.rows[0].id, tipo, valor, motivoFinal, funcId, forma]
     );
     res.status(201).json(rows[0]);
   } catch (err) {

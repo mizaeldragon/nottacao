@@ -799,10 +799,18 @@ function FeedTabela({ feed, onExcluir }) {
   );
 }
 
+const FORMAS_VALE = [
+  { id: 'dinheiro', label: 'Dinheiro' },
+  { id: 'pix', label: 'Pix' },
+  { id: 'cartao_credito', label: 'Crédito' },
+  { id: 'cartao_debito', label: 'Débito' },
+];
+
 function ValeModal({ onClose, onSalvo }) {
   const [funcionarios, setFuncionarios] = useState([]);
   const [funcionarioId, setFuncionarioId] = useState('');
   const [valor, setValor] = useState('');
+  const [forma, setForma] = useState('dinheiro');
   const [motivo, setMotivo] = useState('');
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -822,6 +830,7 @@ function ValeModal({ onClose, onSalvo }) {
         valor: Number(valor),
         motivo: motivo || undefined,
         funcionario_id: funcionarioId,
+        forma_pagamento: forma,
       });
       onSalvo();
     } catch (err) {
@@ -865,6 +874,25 @@ function ValeModal({ onClose, onSalvo }) {
             />
           </div>
           <div>
+            <label className="block text-xs text-gray-400 mb-1">Forma de pagamento</label>
+            <div className="grid grid-cols-2 gap-2">
+              {FORMAS_VALE.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setForma(f.id)}
+                  className={`h-9 rounded-lg text-sm font-medium transition-colors ${
+                    forma === f.id
+                      ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
             <label className="block text-xs text-gray-400 mb-1">Observação (opcional)</label>
             <input
               value={motivo}
@@ -878,7 +906,7 @@ function ValeModal({ onClose, onSalvo }) {
           <button
             type="submit"
             disabled={salvando}
-            className="w-full h-11 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 rounded-lg font-semibold transition-colors"
+            className="w-full h-11 bg-gradient-to-br from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-all hover:-translate-y-0.5"
           >
             Registrar Vale
           </button>
