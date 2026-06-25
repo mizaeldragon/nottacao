@@ -883,7 +883,7 @@ function ValeModal({ onClose, onSalvo }) {
                   onClick={() => setForma(f.id)}
                   className={`h-9 rounded-lg text-sm font-medium transition-colors ${
                     forma === f.id
-                      ? 'bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+                      ? 'bg-orange-500 text-white'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
@@ -906,7 +906,7 @@ function ValeModal({ onClose, onSalvo }) {
           <button
             type="submit"
             disabled={salvando}
-            className="w-full h-11 bg-gradient-to-br from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-all hover:-translate-y-0.5"
+            className="w-full h-11 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 rounded-lg font-semibold transition-colors"
           >
             Registrar Vale
           </button>
