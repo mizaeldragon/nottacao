@@ -434,10 +434,11 @@ export default function Estoque() {
                     </div>
                   ) : !dividir ? (
                     <>
-                      <div className="grid grid-cols-3 gap-2 mb-2">
+                      <div className="grid grid-cols-2 gap-2 mb-2">
                         {[
                           { id: 'pix', label: 'Pix' },
-                          { id: 'cartao', label: 'Cartão' },
+                          { id: 'cartao_credito', label: 'Crédito' },
+                          { id: 'cartao_debito', label: 'Débito' },
                           { id: 'dinheiro', label: 'Dinheiro' },
                         ].map((f) => (
                           <button
@@ -476,7 +477,8 @@ export default function Estoque() {
                             className="h-9 bg-gray-700 border border-gray-600 rounded-lg px-2 text-sm outline-none focus:border-orange-500"
                           >
                             <option value="pix">Pix</option>
-                            <option value="cartao">Cartão</option>
+                            <option value="cartao_credito">Crédito</option>
+                            <option value="cartao_debito">Débito</option>
                             <option value="dinheiro">Dinheiro</option>
                           </select>
                           <input

@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Trash2,
   Wallet,
+  Users,
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import ConfirmModal from '../components/ConfirmModal';
@@ -31,6 +32,7 @@ export default function Caixa() {
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // { tipo, titulo, motivoInicial } | null
+  const [valeModal, setValeModal] = useState(false);
   const [fechamento, setFechamento] = useState(null);
   const [confirmar, setConfirmar] = useState(null); // { mensagem, onOk }
   const [filtro, setFiltro] = useState('todos'); // todos | entradas | saidas
@@ -277,6 +279,11 @@ export default function Caixa() {
               label="Sangria de Gaveta"
               onClick={() => setModal({ tipo: 'sangria', titulo: 'Sangria de Gaveta' })}
             />
+            <LinhaAcao
+              icon={Users}
+              label="Vale de Funcionário"
+              onClick={() => setValeModal(true)}
+            />
           </div>
         </div>
 
@@ -353,6 +360,12 @@ export default function Caixa() {
           onConfirmar={fecharCaixa}
         />
       )}
+      {valeModal && (
+        <ValeModal
+          onClose={() => setValeModal(false)}
+          onSalvo={() => { setValeModal(false); carregar(); }}
+        />
+      )}
       {confirmar && (
         <ConfirmModal
           mensagem={confirmar.mensagem}
@@ -365,13 +378,21 @@ export default function Caixa() {
 }
 
 // Rótulo amigável da forma de pagamento.
-const FORMA_PAG = { pix: 'PIX', cartao: 'Cartão', dinheiro: 'Dinheiro', misto: 'Misto' };
+const FORMA_PAG = {
+  pix: 'PIX',
+  cartao_credito: 'Crédito',
+  cartao_debito: 'Débito',
+  dinheiro: 'Dinheiro',
+  misto: 'Misto',
+  cartao: 'Cartão', // compatibilidade com registros antigos
+};
 
 // Categorias de cada movimento (rótulo + cor da pílula).
 const CATEGORIAS = {
   servico: { label: 'Serviço', classe: 'bg-emerald-500/15 text-emerald-400' },
   suprimento: { label: 'Suprimento', classe: 'bg-sky-500/15 text-sky-400' },
   sangria: { label: 'Sangria', classe: 'bg-rose-500/15 text-rose-400' },
+  vale: { label: 'Vale', classe: 'bg-violet-500/15 text-violet-400' },
   venda: { label: 'Venda', classe: 'bg-indigo-500/15 text-indigo-600' },
   compra: { label: 'Compra', classe: 'bg-amber-500/15 text-amber-600' },
 };
@@ -397,13 +418,14 @@ function montarFeed(dados) {
   }
   for (const m of dados.movimentos || []) {
     const ehSuprimento = m.tipo === 'suprimento';
+    const ehVale = m.tipo === 'sangria' && m.funcionario_id;
     itens.push({
       key: `m-${m.id}`,
       kind: 'movimento',
       id: m.id,
       podeExcluir: true,
-      cat: ehSuprimento ? CATEGORIAS.suprimento : CATEGORIAS.sangria,
-      descricao: m.motivo || (ehSuprimento ? 'Suprimento de caixa' : 'Sangria de gaveta'),
+      cat: ehSuprimento ? CATEGORIAS.suprimento : ehVale ? CATEGORIAS.vale : CATEGORIAS.sangria,
+      descricao: m.motivo || (ehSuprimento ? 'Suprimento de caixa' : ehVale ? `Vale — ${m.funcionario_nome || ''}` : 'Sangria de gaveta'),
       formaPag: '—',
       hora: horaBR(m.created_at),
       valor: Number(m.valor),
@@ -538,7 +560,7 @@ function MovimentoModal({ modal, onClose, onSalvo }) {
 
 function ResumoFechamento({ resumo }) {
   const f = resumo.por_forma || {};
-  const temForma = (f.pix || 0) + (f.cartao || 0) + (f.dinheiro || 0) > 0;
+  const temForma = (f.pix || 0) + (f.cartao_credito || 0) + (f.cartao_debito || 0) + (f.dinheiro || 0) + (f.cartao || 0) > 0;
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
@@ -573,13 +595,14 @@ function ResumoFechamento({ resumo }) {
         </div>
       )}
 
-      {/* Por forma de pagamento (vendas) */}
+      {/* Por forma de pagamento */}
       {temForma && (
         <div className="border-t border-gray-700 pt-4">
-          <p className="text-sm font-semibold text-gray-400 mb-2">Vendas por forma de pagamento</p>
-          <div className="grid grid-cols-3 gap-3 text-sm">
+          <p className="text-sm font-semibold text-gray-400 mb-2">Entradas por forma de pagamento</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
             <Box label="Pix" valor={brl(f.pix || 0)} />
-            <Box label="Cartão" valor={brl(f.cartao || 0)} />
+            <Box label="Cartão Crédito" valor={brl((f.cartao_credito || 0) + (f.cartao || 0))} />
+            <Box label="Cartão Débito" valor={brl(f.cartao_debito || 0)} />
             <Box label="Dinheiro" valor={brl(f.dinheiro || 0)} />
           </div>
         </div>
@@ -773,6 +796,95 @@ function FeedTabela({ feed, onExcluir }) {
 
       <Paginacao pagina={pagina} totalPaginas={totalPaginas} total={total} onPagina={setPagina} />
     </>
+  );
+}
+
+function ValeModal({ onClose, onSalvo }) {
+  const [funcionarios, setFuncionarios] = useState([]);
+  const [funcionarioId, setFuncionarioId] = useState('');
+  const [valor, setValor] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    api.get('/funcionarios').then(({ data }) => setFuncionarios(data.filter((f) => f.ativo)));
+  }, []);
+
+  async function salvar(e) {
+    e.preventDefault();
+    if (!funcionarioId) return setErro('Selecione o funcionário');
+    if (!valor || Number(valor) <= 0) return setErro('Informe um valor válido');
+    setSalvando(true);
+    try {
+      await api.post('/caixa/movimento', {
+        tipo: 'sangria',
+        valor: Number(valor),
+        motivo: motivo || undefined,
+        funcionario_id: funcionarioId,
+      });
+      onSalvo();
+    } catch (err) {
+      setErro(err.response?.data?.error || 'Erro ao registrar vale');
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-lg">Vale de Funcionário</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-200"><X size={20} /></button>
+        </div>
+        <form onSubmit={salvar} className="space-y-3">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Funcionário</label>
+            <select
+              value={funcionarioId}
+              onChange={(e) => setFuncionarioId(e.target.value)}
+              autoFocus
+              className="w-full h-11 bg-gray-700 border border-gray-600 rounded-lg px-3 outline-none focus:border-orange-500"
+            >
+              <option value="">Selecione...</option>
+              {funcionarios.map((f) => (
+                <option key={f.id} value={f.id}>{f.nome}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Valor do vale (R$)</label>
+            <input
+              type="number"
+              step="0.01"
+              inputMode="decimal"
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              placeholder="0,00"
+              className="w-full h-11 bg-gray-700 border border-gray-600 rounded-lg px-3 outline-none focus:border-orange-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Observação (opcional)</label>
+            <input
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Ex: Adiantamento do mês"
+              className="w-full h-11 bg-gray-700 border border-gray-600 rounded-lg px-3 outline-none focus:border-orange-500"
+            />
+          </div>
+          <p className="text-xs text-gray-500">O vale sai do caixa e desconta automaticamente no acerto de comissão do funcionário.</p>
+          {erro && <p className="text-red-400 text-sm">{erro}</p>}
+          <button
+            type="submit"
+            disabled={salvando}
+            className="w-full h-11 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 rounded-lg font-semibold transition-colors"
+          >
+            Registrar Vale
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 

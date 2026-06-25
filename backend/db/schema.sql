@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS movimentos_caixa (
   created_at TIMESTAMP DEFAULT NOW()
 );
 ALTER TABLE movimentos_caixa ADD COLUMN IF NOT EXISTS forma_pagamento VARCHAR(20);
+ALTER TABLE movimentos_caixa ADD COLUMN IF NOT EXISTS funcionario_id UUID REFERENCES funcionarios(id) ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS lancamentos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

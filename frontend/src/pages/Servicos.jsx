@@ -222,10 +222,11 @@ export default function Servicos() {
             {/* Forma de pagamento */}
             <div>
               <label className="block text-xs text-gray-400 mb-1">Forma de pagamento</label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {[
                   { id: 'pix', label: 'Pix' },
-                  { id: 'cartao', label: 'Cartão' },
+                  { id: 'cartao_credito', label: 'Crédito' },
+                  { id: 'cartao_debito', label: 'Débito' },
                   { id: 'dinheiro', label: 'Dinheiro' },
                   { id: 'misto', label: 'Misto' },
                   { id: 'fiado', label: 'Fiado' },
@@ -260,7 +261,8 @@ export default function Servicos() {
                           className="w-28 h-9 bg-gray-700 border border-gray-600 rounded-lg px-2 text-sm outline-none focus:border-orange-500"
                         >
                           <option value="pix">Pix</option>
-                          <option value="cartao">Cartão</option>
+                          <option value="cartao_credito">Crédito</option>
+                          <option value="cartao_debito">Débito</option>
                           <option value="dinheiro">Dinheiro</option>
                         </select>
                         <input

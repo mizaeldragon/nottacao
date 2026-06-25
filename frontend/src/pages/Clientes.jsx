@@ -231,7 +231,8 @@ function ClienteModal({ cliente, onClose, onSalvo }) {
 const FORMAS_PAG = [
   { id: 'dinheiro', label: 'Dinheiro' },
   { id: 'pix', label: 'Pix' },
-  { id: 'cartao', label: 'Cartão' },
+  { id: 'cartao_credito', label: 'Crédito' },
+  { id: 'cartao_debito', label: 'Débito' },
 ];
 
 function ContasModal({ cliente, onClose, onMudou }) {

@@ -170,16 +170,30 @@ router.get('/comissoes', async (req, res) => {
     const pagoMap = {};
     pago.rows.forEach((p) => (pagoMap[p.funcionario_id] = Number(p.total_pago)));
 
+    // Vales: sangrias de caixa vinculadas a um funcionário
+    const vales = await query(
+      `SELECT m.funcionario_id, COALESCE(SUM(m.valor),0) AS total_vales
+       FROM movimentos_caixa m
+       JOIN caixa_dia c ON c.id = m.caixa_id
+       WHERE c.tenant_id = $1 AND m.tipo = 'sangria' AND m.funcionario_id IS NOT NULL
+       GROUP BY m.funcionario_id`,
+      [req.user.tenant_id]
+    );
+    const valesMap = {};
+    vales.rows.forEach((v) => (valesMap[v.funcionario_id] = Number(v.total_vales)));
+
     const lista = ganho.rows.map((g) => {
       const totalGanho = round(g.total_ganho);
       const totalPago = round(pagoMap[g.funcionario_id] || 0);
+      const totalVales = round(valesMap[g.funcionario_id] || 0);
       return {
         funcionario_id: g.funcionario_id,
         nome: g.nome,
         qtd_servicos: Number(g.qtd_servicos),
         total_ganho: totalGanho,
         total_pago: totalPago,
-        saldo: round(totalGanho - totalPago),
+        total_vales: totalVales,
+        saldo: round(totalGanho - totalPago - totalVales),
       };
     });
     res.json(lista);

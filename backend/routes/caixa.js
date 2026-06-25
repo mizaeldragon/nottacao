@@ -21,7 +21,10 @@ async function montarResumo(caixa, tenantId) {
   const lancamentosFinanceiros = lancamentos.filter((l) => l.forma_pagamento !== 'fiado');
 
   const movRes = await query(
-    `SELECT * FROM movimentos_caixa WHERE caixa_id = $1 ORDER BY created_at`,
+    `SELECT m.*, f.nome AS funcionario_nome
+     FROM movimentos_caixa m
+     LEFT JOIN funcionarios f ON f.id = m.funcionario_id
+     WHERE m.caixa_id = $1 ORDER BY m.created_at`,
     [caixa.id]
   );
   const movimentos = movRes.rows;
@@ -74,7 +77,7 @@ async function montarResumo(caixa, tenantId) {
 
   // Entradas por forma de pagamento (vendas de produtos + serviços com forma informada)
   const vendasRes = await query(`SELECT pagamentos FROM vendas WHERE caixa_id = $1`, [caixa.id]);
-  const porForma = { pix: 0, cartao: 0, dinheiro: 0 };
+  const porForma = { pix: 0, cartao_credito: 0, cartao_debito: 0, dinheiro: 0 };
   for (const v of vendasRes.rows) {
     for (const p of v.pagamentos || []) {
       if (porForma[p.forma] !== undefined) porForma[p.forma] += Number(p.valor) || 0;
@@ -196,9 +199,9 @@ router.post('/abrir', async (req, res) => {
   }
 });
 
-// POST /api/caixa/movimento — sangria ou suprimento
+// POST /api/caixa/movimento — sangria ou suprimento (com suporte a vale de funcionário)
 router.post('/movimento', async (req, res) => {
-  const { tipo, valor, motivo } = req.body;
+  const { tipo, valor, motivo, funcionario_id } = req.body;
   if (!['sangria', 'suprimento'].includes(tipo)) {
     return res.status(400).json({ error: 'Tipo deve ser sangria ou suprimento' });
   }
@@ -215,10 +218,23 @@ router.post('/movimento', async (req, res) => {
       return res.status(400).json({ error: 'Nenhum caixa aberto' });
     }
 
+    let funcId = null;
+    let motivoFinal = motivo || null;
+    if (funcionario_id) {
+      const f = await query(
+        `SELECT id, nome FROM funcionarios WHERE id = $1 AND tenant_id = $2 AND ativo = true`,
+        [funcionario_id, req.user.tenant_id]
+      );
+      if (f.rows.length > 0) {
+        funcId = f.rows[0].id;
+        if (!motivoFinal) motivoFinal = `Vale — ${f.rows[0].nome}`;
+      }
+    }
+
     const { rows } = await query(
-      `INSERT INTO movimentos_caixa (caixa_id, tipo, valor, motivo)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [caixa.rows[0].id, tipo, valor, motivo || null]
+      `INSERT INTO movimentos_caixa (caixa_id, tipo, valor, motivo, funcionario_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [caixa.rows[0].id, tipo, valor, motivoFinal, funcId]
     );
     res.status(201).json(rows[0]);
   } catch (err) {

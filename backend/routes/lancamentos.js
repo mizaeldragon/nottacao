@@ -38,7 +38,7 @@ router.post('/', async (req, res) => {
 
   if (!funcionario_id) return res.status(400).json({ error: 'Funcionário é obrigatório' });
   if (!valor || Number(valor) <= 0) return res.status(400).json({ error: 'Valor inválido' });
-  const FORMAS_VALIDAS = ['pix', 'cartao', 'dinheiro', 'misto', 'fiado'];
+  const FORMAS_VALIDAS = ['pix', 'cartao_credito', 'cartao_debito', 'dinheiro', 'misto', 'fiado'];
   const forma = FORMAS_VALIDAS.includes(forma_pagamento) ? forma_pagamento : null;
   const eFiado = forma === 'fiado';
   if (eFiado && !cliente_id) return res.status(400).json({ error: 'Selecione o cliente fiado' });

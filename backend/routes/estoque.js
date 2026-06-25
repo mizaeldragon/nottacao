@@ -309,7 +309,7 @@ router.post('/:id/movimentar', async (req, res) => {
 //   pagamentos = [{ forma:'pix'|'cartao'|'dinheiro', valor }] para pagamento dividido.
 //   Se ausente, usa forma_pagamento único para o total.
 //   Baixa o estoque de cada item e ENTRA o total no caixa (exige caixa aberto).
-const FORMAS = ['pix', 'cartao', 'dinheiro'];
+const FORMAS = ['pix', 'cartao_credito', 'cartao_debito', 'dinheiro'];
 router.post('/vender', async (req, res) => {
   const { itens, forma_pagamento, fiado, cliente_id } = req.body;
   if (!Array.isArray(itens) || itens.length === 0) {

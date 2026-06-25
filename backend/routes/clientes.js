@@ -130,7 +130,7 @@ router.post('/contas/:contaId/pagar', async (req, res) => {
       return res.status(400).json({ error: 'Abra o caixa para receber o pagamento' });
     }
 
-    const FORMAS = ['pix', 'cartao', 'dinheiro'];
+    const FORMAS = ['pix', 'cartao_credito', 'cartao_debito', 'dinheiro'];
     const forma = FORMAS.includes(forma_pagamento) ? forma_pagamento : 'dinheiro';
     const motivo = `Recebimento fiado — ${conta.cliente_nome}`;
 
@@ -197,7 +197,7 @@ router.post('/:id/pagar-abono', async (req, res) => {
       return res.status(400).json({ error: 'Abra o caixa para receber o pagamento' });
     }
 
-    const FORMAS = ['pix', 'cartao', 'dinheiro'];
+    const FORMAS = ['pix', 'cartao_credito', 'cartao_debito', 'dinheiro'];
     const forma = FORMAS.includes(forma_pagamento) ? forma_pagamento : 'dinheiro';
     let restanteAbono = Number(valor);
     let totalPago = 0;

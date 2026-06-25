@@ -253,7 +253,7 @@ export default function Financeiro() {
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-400 mb-3">
                     <span>{c.qtd_servicos} serviço(s) · Total: {brl(c.total_ganho)}</span>
-                    <span>Pago: {brl(c.total_pago)}</span>
+                    <span>Pago: {brl(c.total_pago)}{c.total_vales > 0 ? ` · Vales: ${brl(c.total_vales)}` : ''}</span>
                   </div>
                   <button
                     onClick={() => setPagarModal(c)}
@@ -275,6 +275,7 @@ export default function Financeiro() {
                     <th className="py-2 pr-4">SERVIÇOS</th>
                     <th className="py-2 pr-4 text-right">COMISSÃO TOTAL</th>
                     <th className="py-2 pr-4 text-right">JÁ PAGO</th>
+                    <th className="py-2 pr-4 text-right">VALES</th>
                     <th className="py-2 pr-4 text-right">SALDO A PAGAR</th>
                     <th className="py-2 w-24"></th>
                   </tr>
@@ -286,6 +287,7 @@ export default function Financeiro() {
                       <td className="py-3 pr-4 text-gray-400">{c.qtd_servicos}</td>
                       <td className="py-3 pr-4 text-right">{brl(c.total_ganho)}</td>
                       <td className="py-3 pr-4 text-right text-gray-400">{brl(c.total_pago)}</td>
+                      <td className="py-3 pr-4 text-right text-violet-400">{c.total_vales > 0 ? brl(c.total_vales) : '—'}</td>
                       <td className={`py-3 pr-4 text-right font-bold ${c.saldo > 0 ? 'text-orange-500' : 'text-emerald-400'}`}>
                         {brl(c.saldo)}
                       </td>
