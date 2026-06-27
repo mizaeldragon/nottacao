@@ -213,13 +213,14 @@ export default function Historico() {
                     <th className="px-4 py-2 font-semibold">FUNCIONÁRIO</th>
                     <th className="px-4 py-2 font-semibold">SERVIÇOS</th>
                     <th className="px-4 py-2 font-semibold">TOTAL GERADO</th>
-                    <th className="px-4 py-2 font-semibold text-right">COMISSÃO (50%)</th>
+                    <th className="px-4 py-2 font-semibold text-right">COMISSÃO</th>
+                    <th className="px-4 py-2 font-semibold text-right">VALES</th>
                   </tr>
                 </thead>
                 <tbody>
                   {dados.por_funcionario.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-5 py-8 text-center text-gray-500">
+                      <td colSpan={5} className="px-5 py-8 text-center text-gray-500">
                         Nenhum serviço no período.
                       </td>
                     </tr>
@@ -245,6 +246,9 @@ export default function Historico() {
                       <td className="px-4 py-2.5 text-gray-300">{brl(f.total_gerado)}</td>
                       <td className="px-4 py-2.5 text-right font-bold text-orange-500">
                         {brl(f.comissao)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-violet-400">
+                        {f.total_vales > 0 ? brl(f.total_vales) : '—'}
                       </td>
                     </tr>
                   ))}
@@ -273,6 +277,12 @@ export default function Historico() {
                     <span className="text-gray-400">Comissão:</span>
                     <span className="font-bold text-orange-500">{brl(f.comissao)}</span>
                   </div>
+                  {f.total_vales > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Vales:</span>
+                      <span className="text-violet-400">{brl(f.total_vales)}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -312,13 +322,14 @@ export default function Historico() {
           )}
 
           {/* Vendas por forma de pagamento */}
-          {dados.por_forma && (dados.por_forma.pix + dados.por_forma.cartao + dados.por_forma.dinheiro) > 0 && (
+          {dados.por_forma && (dados.por_forma.pix + (dados.por_forma.cartao_credito || 0) + (dados.por_forma.cartao_debito || 0) + dados.por_forma.dinheiro) > 0 && (
             <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 mt-3">
               <h2 className="font-bold text-lg mb-3">Vendas por Forma de Pagamento</h2>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   { k: 'pix', label: 'Pix' },
-                  { k: 'cartao', label: 'Cartão' },
+                  { k: 'cartao_credito', label: 'Crédito' },
+                  { k: 'cartao_debito', label: 'Débito' },
                   { k: 'dinheiro', label: 'Dinheiro' },
                 ].map((f) => (
                   <div key={f.k} className="bg-gray-900 rounded-lg p-4">
@@ -326,6 +337,30 @@ export default function Historico() {
                     <p className="text-xl font-bold mt-1">{brl(dados.por_forma[f.k] || 0)}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Vales pagos no período */}
+          {(dados.total_vales || 0) > 0 && (
+            <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 mt-3">
+              <h2 className="font-bold text-lg mb-3">Vales Pagos a Funcionários</h2>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {dados.por_funcionario.filter(f => f.total_vales > 0).map((f) => (
+                  <div key={f.funcionario_id || f.nome} className="flex items-center justify-between bg-gray-900 rounded-lg px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <span className={`w-7 h-7 rounded-full ${corDoNome(f.nome)} flex items-center justify-center text-white text-xs font-bold`}>
+                        {f.nome?.[0]?.toUpperCase() || '?'}
+                      </span>
+                      <span className="text-sm font-medium">{f.nome}</span>
+                    </div>
+                    <span className="font-bold text-violet-400">{brl(f.total_vales)}</span>
+                  </div>
+                ))}
+                <div className="sm:col-span-2 flex items-center justify-between bg-violet-500/10 border border-violet-500/20 rounded-lg px-4 py-3">
+                  <span className="text-sm font-semibold text-violet-300">Total de vales</span>
+                  <span className="font-bold text-violet-400">{brl(dados.total_vales)}</span>
+                </div>
               </div>
             </div>
           )}

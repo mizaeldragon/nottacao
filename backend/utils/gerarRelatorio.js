@@ -78,6 +78,20 @@ export async function coletarDados(tenant, inicio, fim) {
     [tenant, inicio, fim]
   );
 
+  const valesFunc = await query(
+    `SELECT f.nome, COALESCE(SUM(m.valor), 0) AS total_vales
+     FROM movimentos_caixa m
+     JOIN funcionarios f ON f.id = m.funcionario_id
+     JOIN caixa_dia c ON c.id = m.caixa_id
+     WHERE c.tenant_id = $1 AND m.tipo = 'sangria' AND m.funcionario_id IS NOT NULL
+       AND c.data BETWEEN $2 AND $3
+     GROUP BY f.nome`,
+    [tenant, inicio, fim]
+  );
+  const valesMap = {};
+  for (const v of valesFunc.rows) valesMap[v.nome] = Number(v.total_vales);
+  const totalVales = valesFunc.rows.reduce((s, v) => s + Number(v.total_vales), 0);
+
   const inicioAnt = new Date(inicio);
   inicioAnt.setDate(inicioAnt.getDate() - 7);
   const fimAnt = new Date(fim);
@@ -110,7 +124,10 @@ export async function coletarDados(tenant, inicio, fim) {
     top_funcionarios: topFunc.rows.map(r => ({
       nome: r.nome, qtd: Number(r.qtd),
       total: Number(r.total), comissao: Number(r.comissao),
+      total_vales: valesMap[r.nome] || 0,
     })),
+    vales_funcionarios: valesFunc.rows.map(r => ({ nome: r.nome, total_vales: Number(r.total_vales) })),
+    total_vales: Math.round(totalVales * 100) / 100,
   };
 }
 
@@ -141,7 +158,8 @@ Top serviços:
 ${dados.top_servicos.map(s => `- ${s.nome}: ${s.qtd}x, ${fmt(s.total)}`).join('\n')}
 
 Top funcionários:
-${dados.top_funcionarios.map(f => `- ${f.nome}: ${f.qtd} serviços, ${fmt(f.total)} faturado, ${fmt(f.comissao)} de comissão`).join('\n')}
+${dados.top_funcionarios.map(f => `- ${f.nome}: ${f.qtd} serviços, ${fmt(f.total)} faturado, ${fmt(f.comissao)} de comissão${f.total_vales > 0 ? `, ${fmt(f.total_vales)} em vales` : ''}`).join('\n')}
+${dados.total_vales > 0 ? `\nTotal de vales pagos no período: ${fmt(dados.total_vales)}` : ''}
 
 Retorne APENAS um JSON com exatamente esta estrutura (sem markdown, sem explicações):
 {

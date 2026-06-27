@@ -45,13 +45,14 @@ export function pdfFechamentoCaixa(nomeEmpresa, dados) {
   });
 
   const pf = resumo.por_forma || {};
-  if ((pf.pix || 0) + (pf.cartao || 0) + (pf.dinheiro || 0) > 0) {
+  if ((pf.pix || 0) + (pf.cartao_credito || 0) + (pf.cartao_debito || 0) + (pf.cartao || 0) + (pf.dinheiro || 0) > 0) {
     autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 8,
-      head: [['Vendas por forma', 'Valor']],
+      head: [['Entradas por forma', 'Valor']],
       body: [
         ['Pix', brl(pf.pix || 0)],
-        ['Cartão', brl(pf.cartao || 0)],
+        ['Cartão Crédito', brl((pf.cartao_credito || 0) + (pf.cartao || 0))],
+        ['Cartão Débito', brl(pf.cartao_debito || 0)],
         ['Dinheiro', brl(pf.dinheiro || 0)],
       ],
       headStyles: { fillColor: LARANJA },
@@ -148,14 +149,23 @@ export function pdfHistorico(nomeEmpresa, dados) {
   if (dados.por_funcionario?.length) {
     autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 8,
-      head: [['Funcionário', 'Qtd', 'Comissão', 'Total gerado']],
+      head: [['Funcionário', 'Qtd', 'Comissão', 'Total gerado', 'Vales']],
       body: dados.por_funcionario.map((f) => [
         f.nome,
         f.qtd,
         brl(f.comissao),
         brl(f.total_gerado),
+        f.total_vales > 0 ? brl(f.total_vales) : '—',
       ]),
       headStyles: { fillColor: LARANJA },
+    });
+  }
+
+  if ((dados.total_vales || 0) > 0) {
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 4,
+      body: [['Total de vales pagos no período', brl(dados.total_vales)]],
+      styles: { textColor: [109, 40, 217] },
     });
   }
 
@@ -169,13 +179,14 @@ export function pdfHistorico(nomeEmpresa, dados) {
   }
 
   const pf = dados.por_forma || {};
-  if ((pf.pix || 0) + (pf.cartao || 0) + (pf.dinheiro || 0) > 0) {
+  if ((pf.pix || 0) + (pf.cartao_credito || 0) + (pf.cartao_debito || 0) + (pf.dinheiro || 0) > 0) {
     autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 8,
       head: [['Vendas por forma', 'Valor']],
       body: [
         ['Pix', brl(pf.pix || 0)],
-        ['Cartão', brl(pf.cartao || 0)],
+        ['Cartão Crédito', brl(pf.cartao_credito || 0)],
+        ['Cartão Débito', brl(pf.cartao_debito || 0)],
         ['Dinheiro', brl(pf.dinheiro || 0)],
       ],
       headStyles: { fillColor: LARANJA },
@@ -203,17 +214,19 @@ export function pdfRelatorioIA(nomeEmpresa, r) {
   doc.text(`Relatório IA — Semana de ${f(ini)} a ${f(fim)}`, 14, 27);
 
   // Totais
+  const bodyIA = [
+    ['Faturamento total', fmt(dados.fat_total)],
+    ['Serviços', fmt(dados.fat_servicos)],
+    ['Vendas PDV', fmt(dados.fat_pdv)],
+    ['Qtd. serviços', String(dados.qtd_servicos || 0)],
+    ['Ticket médio', fmt(dados.ticket_medio)],
+    ['Variação vs semana ant.', dados.variacao_pct != null ? `${dados.variacao_pct}%` : '—'],
+  ];
+  if (dados.total_vales > 0) bodyIA.push(['Vales pagos a funcionários', fmt(dados.total_vales)]);
   autoTable(doc, {
     startY: 33,
     head: [['Indicador', 'Valor']],
-    body: [
-      ['Faturamento total', fmt(dados.fat_total)],
-      ['Serviços', fmt(dados.fat_servicos)],
-      ['Vendas PDV', fmt(dados.fat_pdv)],
-      ['Qtd. serviços', String(dados.qtd_servicos || 0)],
-      ['Ticket médio', fmt(dados.ticket_medio)],
-      ['Variação vs semana ant.', dados.variacao_pct != null ? `${dados.variacao_pct}%` : '—'],
-    ],
+    body: bodyIA,
     headStyles: { fillColor: LARANJA },
   });
 
@@ -255,6 +268,19 @@ export function pdfRelatorioIA(nomeEmpresa, r) {
       const sug = doc.splitTextToSize(r.ia_sugestao, 182);
       doc.text(sug, 14, cy);
     }
+  }
+
+  // Funcionários com vales
+  if (dados.top_funcionarios?.length) {
+    autoTable(doc, {
+      startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 8 : doc.internal.pageSize.height - 40,
+      head: [['Funcionário', 'Serviços', 'Faturado', 'Comissão', 'Vales']],
+      body: dados.top_funcionarios.map((f) => [
+        f.nome, f.qtd, fmt(f.total), fmt(f.comissao),
+        f.total_vales > 0 ? fmt(f.total_vales) : '—',
+      ]),
+      headStyles: { fillColor: LARANJA },
+    });
   }
 
   doc.save(`relatorio-ia-${ini}.pdf`);

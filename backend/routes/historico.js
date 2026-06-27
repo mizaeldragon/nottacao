@@ -63,6 +63,24 @@ router.get('/', async (req, res) => {
     totalProdutos = Math.round(totalProdutos * 100) / 100;
     const produtosVendidos = Object.values(prodMap).sort((a, b) => b.total - a.total);
 
+    // Vales pagos a funcionários no período
+    const valesRes = await query(
+      `SELECT m.funcionario_id, COALESCE(SUM(m.valor), 0) AS total_vales
+       FROM movimentos_caixa m
+       JOIN caixa_dia c ON c.id = m.caixa_id
+       WHERE c.tenant_id = $1 AND m.tipo = 'sangria' AND m.funcionario_id IS NOT NULL
+         AND c.data BETWEEN $2 AND $3
+       GROUP BY m.funcionario_id`,
+      [req.user.tenant_id, inicio, fim]
+    );
+    const valesMap = {};
+    let totalValesPeriodo = 0;
+    for (const v of valesRes.rows) {
+      valesMap[v.funcionario_id] = Number(v.total_vales);
+      totalValesPeriodo += Number(v.total_vales);
+    }
+    totalValesPeriodo = Math.round(totalValesPeriodo * 100) / 100;
+
     // Vendas por forma de pagamento (do registro de vendas do PDV)
     const formaRes = await query(
       `SELECT v.pagamentos FROM vendas v
@@ -70,7 +88,7 @@ router.get('/', async (req, res) => {
        WHERE v.tenant_id = $1 AND c.data BETWEEN $2 AND $3`,
       [req.user.tenant_id, inicio, fim]
     );
-    const porForma = { pix: 0, cartao: 0, dinheiro: 0 };
+    const porForma = { pix: 0, cartao_credito: 0, cartao_debito: 0, dinheiro: 0 };
     for (const v of formaRes.rows) {
       for (const p of v.pagamentos || []) {
         if (porForma[p.forma] !== undefined) porForma[p.forma] += Number(p.valor) || 0;
@@ -86,6 +104,8 @@ router.get('/', async (req, res) => {
     );
     for (const s of servForma.rows) {
       if (porForma[s.forma] !== undefined) porForma[s.forma] += Number(s.total) || 0;
+      // compatibilidade com registros antigos (forma = 'cartao')
+      else if (s.forma === 'cartao') porForma.cartao_credito += Number(s.total) || 0;
     }
     Object.keys(porForma).forEach((k) => (porForma[k] = Math.round(porForma[k] * 100) / 100));
 
@@ -122,19 +142,25 @@ router.get('/', async (req, res) => {
     );
     const porDia = serie.rows.map((r) => ({ dia: r.dia, total: Number(r.total) }));
 
+    const porFuncionario = Object.values(map).map((f) => ({
+      ...f,
+      total_vales: Math.round((valesMap[f.funcionario_id] || 0) * 100) / 100,
+    }));
+
     res.json({
       periodo: { inicio, fim },
       por_dia: porDia,
       total_geral: totalGeral,
       total_funcionarios: totalFuncionarios,
       total_patrao: totalPatrao,
+      total_vales: totalValesPeriodo,
       qtd_servicos: lancamentos.length,
       total_produtos: totalProdutos,
       qtd_produtos: qtdProdutos,
       produtos_vendidos: produtosVendidos,
       por_forma: porForma,
       faturamento_total: Math.round((totalGeral + totalProdutos) * 100) / 100,
-      por_funcionario: Object.values(map),
+      por_funcionario: porFuncionario,
       lancamentos,
     });
   } catch (err) {

@@ -314,10 +314,19 @@ function RelatorioPainel({ r, compact }) {
                   <div className="text-right shrink-0 ml-3">
                     <p className="text-sm font-bold">{brl(f.total)}</p>
                     <p className="text-xs text-orange-500">{brl(f.comissao)} comissão</p>
+                    {f.total_vales > 0 && (
+                      <p className="text-xs text-violet-400">{brl(f.total_vales)} em vales</p>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
+            {dados.total_vales > 0 && (
+              <div className="mt-3 pt-3 border-t border-gray-700 flex items-center justify-between text-sm">
+                <span className="text-gray-400">Total vales na semana</span>
+                <span className="font-bold text-violet-400">{brl(dados.total_vales)}</span>
+              </div>
+            )}
           </div>
         )}
       </div>
