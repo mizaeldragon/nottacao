@@ -303,6 +303,7 @@ export default function Caixa() {
             {r.compras_estoque > 0 && (
               <LinhaResumo icon={Minus} label="Compras" valor={`- ${brl(r.compras_estoque)}`} />
             )}
+            <LinhaResumo icon={Users} label="Comissão Funcionários" valor={brl(r.total_funcionarios)} />
           </div>
 
           <p className="text-xs text-white/70 mt-5 pt-4 border-t border-white/20">
@@ -412,6 +413,7 @@ function montarFeed(dados) {
       formaPag: FORMA_PAG[l.forma_pagamento] || '—',
       hora: horaBR(l.created_at),
       valor: Number(l.valor),
+      comissao: Number(l.valor_funcionario),
       entrada: true,
       ts: new Date(l.created_at).getTime(),
     });
@@ -570,7 +572,7 @@ function ResumoFechamento({ resumo }) {
         <Box label="Suprimentos" valor={brl(resumo.suprimentos)} />
         <Box label="Sangrias" valor={`- ${brl(resumo.sangrias)}`} />
         {resumo.compras_estoque > 0 && <Box label="Compras de estoque" valor={`- ${brl(resumo.compras_estoque)}`} />}
-        <Box label="Funcionários" valor={brl(resumo.total_funcionarios)} />
+        <Box label="Comissão Funcionários" valor={brl(resumo.total_funcionarios)} />
         <Box label="Patrão" valor={brl(resumo.total_patrao)} destaque />
       </div>
 
@@ -746,9 +748,14 @@ function FeedTabela({ feed, onExcluir }) {
                 </td>
                 <td className="py-2 pr-4 max-w-[220px] truncate">{m.descricao}</td>
                 <td className="py-2 pr-4 text-gray-400 whitespace-nowrap">{m.formaPag}</td>
-                <td className={`py-2 pr-4 text-right font-bold whitespace-nowrap ${m.entrada ? 'text-green-400' : 'text-red-400'}`}>
-                  {m.entrada ? '+' : '-'}
-                  {brl(m.valor)}
+                <td className="py-2 pr-4 text-right whitespace-nowrap">
+                  <p className={`font-bold ${m.entrada ? 'text-green-400' : 'text-red-400'}`}>
+                    {m.entrada ? '+' : '-'}
+                    {brl(m.valor)}
+                  </p>
+                  {m.comissao != null && (
+                    <p className="text-xs text-gray-400 font-normal">Comissão: {brl(m.comissao)}</p>
+                  )}
                 </td>
                 <td className="py-3 text-right">
                   {m.podeExcluir && (
@@ -786,9 +793,14 @@ function FeedTabela({ feed, onExcluir }) {
             <p className="font-medium text-sm truncate">{m.descricao}</p>
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-400">{m.formaPag}</span>
-              <span className={`font-bold text-sm ${m.entrada ? 'text-green-400' : 'text-red-400'}`}>
-                {m.entrada ? '+' : '-'}{brl(m.valor)}
-              </span>
+              <div className="text-right">
+                <span className={`font-bold text-sm ${m.entrada ? 'text-green-400' : 'text-red-400'}`}>
+                  {m.entrada ? '+' : '-'}{brl(m.valor)}
+                </span>
+                {m.comissao != null && (
+                  <p className="text-xs text-gray-400">Comissão: {brl(m.comissao)}</p>
+                )}
+              </div>
             </div>
           </div>
         ))}

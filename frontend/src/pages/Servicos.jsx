@@ -159,7 +159,7 @@ export default function Servicos() {
       {/* Cards de totais */}
       <div className="grid sm:grid-cols-3 gap-3 mb-4">
         <StatCard label="TOTAL DO DIA" valor={brl(totalDia)} icon={ClipboardList} destaque />
-        <StatCard label="PARTE FUNCIONÁRIO" valor={brl(totalFunc)} icon={Users} />
+        <StatCard label="COMISSÃO FUNCIONÁRIO" valor={brl(totalFunc)} icon={Users} />
         <StatCard label="PARTE PATRÃO" valor={brl(totalPatrao)} icon={Briefcase} />
       </div>
 
@@ -518,7 +518,7 @@ export default function Servicos() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-bold text-sm">{brl(l.valor)}</p>
-                  <p className="text-xs text-gray-400">Func: {brl(l.valor_funcionario)}</p>
+                  <p className="text-xs text-gray-400">Comissão: {brl(l.valor_funcionario)}</p>
                 </div>
                 <button
                   onClick={() => excluir(l.id)}
