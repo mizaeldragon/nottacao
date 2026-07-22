@@ -81,31 +81,40 @@ router.get('/', async (req, res) => {
     }
     totalValesPeriodo = Math.round(totalValesPeriodo * 100) / 100;
 
-    // Vendas por forma de pagamento (do registro de vendas do PDV)
+    // Vendas por forma (PDV + serviços; mistos desmembrados pelo JSON pagamentos)
+    const porForma = { pix: 0, cartao_credito: 0, cartao_debito: 0, dinheiro: 0 };
+    const somarForma = (forma, valor) => {
+      const v = Number(valor) || 0;
+      if (v <= 0 || !forma || forma === 'misto' || forma === 'fiado') return;
+      if (porForma[forma] !== undefined) porForma[forma] += v;
+      else if (forma === 'cartao') porForma.cartao_credito += v;
+    };
+
     const formaRes = await query(
       `SELECT v.pagamentos FROM vendas v
        JOIN caixa_dia c ON c.id = v.caixa_id
-       WHERE v.tenant_id = $1 AND c.data BETWEEN $2 AND $3`,
+       WHERE v.tenant_id = $1 AND c.data BETWEEN $2 AND $3 AND COALESCE(v.fiado, false) = false`,
       [req.user.tenant_id, inicio, fim]
     );
-    const porForma = { pix: 0, cartao_credito: 0, cartao_debito: 0, dinheiro: 0 };
     for (const v of formaRes.rows) {
-      for (const p of v.pagamentos || []) {
-        if (porForma[p.forma] !== undefined) porForma[p.forma] += Number(p.valor) || 0;
-      }
+      const pags = typeof v.pagamentos === 'string' ? JSON.parse(v.pagamentos) : v.pagamentos;
+      for (const p of pags || []) somarForma(p.forma, p.valor);
     }
-    // Serviços com forma de pagamento informada
+
     const servForma = await query(
-      `SELECT l.forma_pagamento AS forma, COALESCE(SUM(l.valor),0) AS total
+      `SELECT l.forma_pagamento, l.pagamentos, l.valor
        FROM lancamentos l JOIN caixa_dia c ON c.id = l.caixa_id
-       WHERE l.tenant_id = $1 AND c.data BETWEEN $2 AND $3 AND l.forma_pagamento IS NOT NULL
-       GROUP BY l.forma_pagamento`,
+       WHERE l.tenant_id = $1 AND c.data BETWEEN $2 AND $3
+         AND l.forma_pagamento IS NOT NULL AND l.forma_pagamento <> 'fiado'`,
       [req.user.tenant_id, inicio, fim]
     );
     for (const s of servForma.rows) {
-      if (porForma[s.forma] !== undefined) porForma[s.forma] += Number(s.total) || 0;
-      // compatibilidade com registros antigos (forma = 'cartao')
-      else if (s.forma === 'cartao') porForma.cartao_credito += Number(s.total) || 0;
+      if (s.forma_pagamento === 'misto') {
+        const pags = typeof s.pagamentos === 'string' ? JSON.parse(s.pagamentos) : s.pagamentos;
+        for (const p of pags || []) somarForma(p.forma, p.valor);
+      } else {
+        somarForma(s.forma_pagamento, s.valor);
+      }
     }
     Object.keys(porForma).forEach((k) => (porForma[k] = Math.round(porForma[k] * 100) / 100));
 

@@ -75,19 +75,38 @@ async function montarResumo(caixa, tenantId) {
     .filter((e) => e.tipo === 'entrada')
     .reduce((s, e) => s + Number(e.valor_total), 0);
 
-  // Entradas por forma de pagamento (vendas de produtos + serviços com forma informada)
-  const vendasRes = await query(`SELECT pagamentos FROM vendas WHERE caixa_id = $1`, [caixa.id]);
+  // Entradas por forma de pagamento (PDV + serviços + mistos desmembrados + suprimentos)
   const porForma = { pix: 0, cartao_credito: 0, cartao_debito: 0, dinheiro: 0 };
+  const somarForma = (forma, valor) => {
+    const v = Number(valor) || 0;
+    if (v <= 0 || !forma || forma === 'misto' || forma === 'fiado') return;
+    if (porForma[forma] !== undefined) porForma[forma] += v;
+    else if (forma === 'cartao') porForma.cartao_credito += v; // legado
+  };
+
+  const vendasRes = await query(
+    `SELECT pagamentos FROM vendas WHERE caixa_id = $1 AND COALESCE(fiado, false) = false`,
+    [caixa.id]
+  );
   for (const v of vendasRes.rows) {
-    for (const p of v.pagamentos || []) {
-      if (porForma[p.forma] !== undefined) porForma[p.forma] += Number(p.valor) || 0;
-    }
+    const pags = typeof v.pagamentos === 'string' ? JSON.parse(v.pagamentos) : v.pagamentos;
+    for (const p of pags || []) somarForma(p.forma, p.valor);
   }
+
   for (const l of lancamentosFinanceiros) {
-    if (l.forma_pagamento && porForma[l.forma_pagamento] !== undefined) {
-      porForma[l.forma_pagamento] += Number(l.valor) || 0;
+    if (l.forma_pagamento === 'misto') {
+      const pags = typeof l.pagamentos === 'string' ? JSON.parse(l.pagamentos) : l.pagamentos;
+      for (const p of pags || []) somarForma(p.forma, p.valor);
+    } else {
+      somarForma(l.forma_pagamento, l.valor);
     }
   }
+
+  // Suprimentos com forma (ex.: recebimento de fiado) também são entradas reais
+  for (const m of movimentos) {
+    if (m.tipo === 'suprimento') somarForma(m.forma_pagamento, m.valor);
+  }
+
   Object.keys(porForma).forEach((k) => (porForma[k] = Math.round(porForma[k] * 100) / 100));
 
   // Modelo de caixa (dinheiro que passa pela gaveta):

@@ -45,19 +45,21 @@ export function pdfFechamentoCaixa(nomeEmpresa, dados) {
   });
 
   const pf = resumo.por_forma || {};
-  if ((pf.pix || 0) + (pf.cartao_credito || 0) + (pf.cartao_debito || 0) + (pf.cartao || 0) + (pf.dinheiro || 0) > 0) {
-    autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 8,
-      head: [['Entradas por forma', 'Valor']],
-      body: [
-        ['Pix', brl(pf.pix || 0)],
-        ['Cartão Crédito', brl((pf.cartao_credito || 0) + (pf.cartao || 0))],
-        ['Cartão Débito', brl(pf.cartao_debito || 0)],
-        ['Dinheiro', brl(pf.dinheiro || 0)],
-      ],
-      headStyles: { fillColor: LARANJA },
-    });
-  }
+  const totalFormas =
+    (pf.pix || 0) + (pf.cartao_credito || 0) + (pf.cartao_debito || 0) + (pf.cartao || 0) + (pf.dinheiro || 0);
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 8,
+    head: [['Entradas por forma', 'Valor']],
+    body: [
+      ['Pix', brl(pf.pix || 0)],
+      ['Cartão Crédito', brl((pf.cartao_credito || 0) + (pf.cartao || 0))],
+      ['Cartão Débito', brl(pf.cartao_debito || 0)],
+      ['Dinheiro', brl(pf.dinheiro || 0)],
+      ['Total recebido', brl(totalFormas)],
+    ],
+    headStyles: { fillColor: LARANJA },
+  });
+
 
   if (resumo.por_funcionario?.length) {
     autoTable(doc, {

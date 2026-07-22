@@ -562,7 +562,8 @@ function MovimentoModal({ modal, onClose, onSalvo }) {
 
 function ResumoFechamento({ resumo }) {
   const f = resumo.por_forma || {};
-  const temForma = (f.pix || 0) + (f.cartao_credito || 0) + (f.cartao_debito || 0) + (f.dinheiro || 0) + (f.cartao || 0) > 0;
+  const totalFormas =
+    (f.pix || 0) + (f.cartao_credito || 0) + (f.cartao_debito || 0) + (f.dinheiro || 0) + (f.cartao || 0);
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
@@ -597,18 +598,21 @@ function ResumoFechamento({ resumo }) {
         </div>
       )}
 
-      {/* Por forma de pagamento */}
-      {temForma && (
-        <div className="border-t border-gray-700 pt-4">
-          <p className="text-sm font-semibold text-gray-400 mb-2">Entradas por forma de pagamento</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-            <Box label="Pix" valor={brl(f.pix || 0)} />
-            <Box label="Cartão Crédito" valor={brl((f.cartao_credito || 0) + (f.cartao || 0))} />
-            <Box label="Cartão Débito" valor={brl(f.cartao_debito || 0)} />
-            <Box label="Dinheiro" valor={brl(f.dinheiro || 0)} />
-          </div>
+      {/* Relatório por forma — sempre no fechamento (mistos já desmembrados no backend) */}
+      <div className="border-t border-gray-700 pt-4">
+        <p className="text-sm font-semibold text-gray-400 mb-2">Entradas por forma de pagamento</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+          <Box label="Pix" valor={brl(f.pix || 0)} />
+          <Box label="Cartão Crédito" valor={brl((f.cartao_credito || 0) + (f.cartao || 0))} />
+          <Box label="Cartão Débito" valor={brl(f.cartao_debito || 0)} />
+          <Box label="Dinheiro" valor={brl(f.dinheiro || 0)} />
         </div>
-      )}
+        <div className="mt-2 flex justify-between text-sm px-1">
+          <span className="text-gray-500">Total recebido no dia</span>
+          <span className="font-semibold text-orange-400">{brl(totalFormas)}</span>
+        </div>
+      </div>
+
 
       {resumo.por_funcionario?.length > 0 && (
         <div className="border-t border-gray-700 pt-4">
