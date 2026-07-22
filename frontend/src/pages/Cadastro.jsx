@@ -498,8 +498,13 @@ function Funcionarios() {
       mensagem: 'Remover funcionário?',
       onOk: async () => {
         setConfirmar(null);
-        await api.delete(`/funcionarios/${id}`);
-        carregar();
+        setErro('');
+        try {
+          await api.delete(`/funcionarios/${id}`);
+          carregar();
+        } catch (err) {
+          setErro(err.response?.data?.error || 'Erro ao remover');
+        }
       },
     });
     return;

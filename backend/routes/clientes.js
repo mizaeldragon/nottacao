@@ -66,6 +66,18 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
+    const saldoRes = await query(
+      `SELECT COALESCE(SUM(valor - valor_pago),0) AS saldo FROM contas_receber
+       WHERE cliente_id = $1 AND tenant_id = $2 AND status = 'aberto'`,
+      [req.params.id, req.user.tenant_id]
+    );
+    const saldo = Math.round(Number(saldoRes.rows[0].saldo) * 100) / 100;
+    if (saldo > 0.01) {
+      return res.status(400).json({
+        error: `Cliente tem R$ ${saldo.toFixed(2).replace('.', ',')} de fiado em aberto. Receba ou quite a conta antes de remover.`,
+      });
+    }
+
     const { rows } = await query(
       `UPDATE clientes SET ativo = false WHERE id = $1 AND tenant_id = $2 RETURNING id`,
       [req.params.id, req.user.tenant_id]
