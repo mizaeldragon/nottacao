@@ -24,6 +24,7 @@ export default function Servicos() {
   const [funcionarioId, setFuncionarioId] = useState('');
   const [tipoId, setTipoId] = useState('');
   const [valor, setValor] = useState('');
+  const [quantidade, setQuantidade] = useState(1);
   const [clienteNome, setClienteNome] = useState('');
   const [clienteId, setClienteId] = useState('');
   const [clienteFiadoTexto, setClienteFiadoTexto] = useState('');
@@ -84,22 +85,25 @@ export default function Servicos() {
     if (!valor || Number(valor) <= 0) return setErro('Informe um valor válido');
     if (formaPagamento === 'fiado' && !clienteId) return setErro('Selecione o cliente fiado para lançar no fiado');
 
+    const qtd = Math.max(1, parseInt(quantidade, 10) || 1);
+    const totalCobrado = Math.round((Number(valor) || 0) * qtd * 100) / 100;
+
     if (formaPagamento === 'misto') {
       const soma = pagamentosMisto.reduce((s, p) => s + (Number(p.valor) || 0), 0);
-      const total = Number(valor);
-      if (Math.abs(soma - total) > 0.01) {
-        return setErro(`A soma dos pagamentos (${brl(soma)}) deve ser igual ao valor total (${brl(total)})`);
+      if (Math.abs(soma - totalCobrado) > 0.01) {
+        return setErro(`A soma dos pagamentos (${brl(soma)}) deve ser igual ao valor total (${brl(totalCobrado)})`);
       }
     }
 
     setSalvando(true);
     try {
       const tipo = tipos.find((t) => t.id === tipoId);
+      const nomeServico = qtd > 1 ? `${tipo?.nome || 'Serviço'} (${qtd}x)` : tipo?.nome;
       const { data } = await api.post('/lancamentos', {
         funcionario_id: funcionarioId,
         tipo_servico_id: tipoId || null,
-        nome_servico: tipo?.nome,
-        valor: Number(valor),
+        nome_servico: nomeServico,
+        valor: totalCobrado,
         cliente_id: clienteId || undefined,
         cliente_nome: clienteNome,
         produtos: produtos.length > 0 ? produtos.map((p) => ({
@@ -112,6 +116,7 @@ export default function Servicos() {
       });
       setLancamentos((prev) => [data, ...prev]);
       setValor('');
+      setQuantidade(1);
       setTipoId('');
       setClienteNome('');
       setClienteId('');
@@ -149,10 +154,12 @@ export default function Servicos() {
   const totalPatrao = lancamentos.reduce((s, l) => s + Number(l.valor_patrao), 0);
 
   const valorNum = Number(valor) || 0;
+  const qtd = Math.max(1, parseInt(quantidade, 10) || 1);
+  const totalCobrado = Math.round(valorNum * qtd * 100) / 100;
   const tipoSelecionado = tipos.find((t) => t.id === tipoId);
   const pctFunc = tipoSelecionado ? Number(tipoSelecionado.percentual_funcionario) : 50;
-  const previaFunc = Math.round(valorNum * (pctFunc / 100) * 100) / 100;
-  const previaPatrao = Math.round((valorNum - previaFunc) * 100) / 100;
+  const previaFunc = Math.round(totalCobrado * (pctFunc / 100) * 100) / 100;
+  const previaPatrao = Math.round((totalCobrado - previaFunc) * 100) / 100;
 
   return (
     <Layout title="Serviços" subtitle="Lançamento e divisão de serviços realizados.">
@@ -206,17 +213,43 @@ export default function Servicos() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Valor Cobrado</label>
-              <input
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                value={valor}
-                onChange={(e) => setValor(e.target.value)}
-                placeholder="R$ 25,00"
-                className="w-full h-10 bg-gray-700 border border-gray-600 rounded-lg px-3 text-base outline-none focus:border-orange-500"
-              />
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <label className="block text-xs text-gray-400 mb-1">Valor unitário</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={valor}
+                  onChange={(e) => setValor(e.target.value)}
+                  placeholder="R$ 25,00"
+                  className="w-full h-10 bg-gray-700 border border-gray-600 rounded-lg px-3 text-base outline-none focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Quantidade</label>
+                <div className="flex items-center h-10 bg-gray-700 border border-gray-600 rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setQuantidade((q) => Math.max(1, (parseInt(q, 10) || 1) - 1))}
+                    className="w-9 h-full text-lg font-bold text-gray-300 hover:bg-gray-600 shrink-0"
+                  >−</button>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    value={quantidade}
+                    onChange={(e) => setQuantidade(e.target.value)}
+                    onBlur={() => setQuantidade((q) => Math.max(1, parseInt(q, 10) || 1))}
+                    className="flex-1 w-full h-full min-w-0 bg-transparent text-center text-base font-semibold outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQuantidade((q) => (parseInt(q, 10) || 1) + 1)}
+                    className="w-9 h-full text-lg font-bold text-gray-300 hover:bg-gray-600 shrink-0"
+                  >+</button>
+                </div>
+              </div>
             </div>
 
             {/* Forma de pagamento */}
@@ -460,6 +493,14 @@ export default function Servicos() {
                 </div>
               )}
             </div>
+
+            {/* Total quando há mais de uma unidade */}
+            {qtd > 1 && (
+              <div className="flex items-center justify-between px-1 text-xs">
+                <span className="text-gray-400">{qtd} × {brl(valorNum)}</span>
+                <span className="font-bold text-orange-400">Total: {brl(totalCobrado)}</span>
+              </div>
+            )}
 
             {/* Divisão estimada */}
             <div className="flex items-center justify-between gap-2 bg-orange-500/10 border border-orange-500/30 rounded-lg px-3 h-10">
