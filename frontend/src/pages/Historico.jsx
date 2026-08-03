@@ -3,7 +3,7 @@ import { FileDown, Receipt, Wallet, Wrench, ShoppingBag, TrendingUp } from 'luci
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { brl } from '../utils/format';
+import { brl, dataBR } from '../utils/format';
 import { pdfHistorico } from '../utils/pdf';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { usePaginacao } from '../hooks/usePaginacao';
@@ -47,10 +47,18 @@ function intervaloMes() {
   return { inicio: dataLocal(ini), fim: dataLocal(fim) };
 }
 
+function intervaloMesPassado() {
+  const hoje = new Date();
+  const ini = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+  const fim = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+  return { inicio: dataLocal(ini), fim: dataLocal(fim) };
+}
+
 const PERIODOS = [
   { id: 'hoje', label: 'Hoje' },
   { id: 'semana', label: 'Esta semana' },
   { id: 'mes', label: 'Este mês' },
+  { id: 'mes_passado', label: 'Mês passado' },
 ];
 
 export default function Historico() {
@@ -86,6 +94,7 @@ export default function Historico() {
     if (valor === 'hoje') carregar(intervaloHoje());
     else if (valor === 'semana') carregar(intervaloSemana());
     else if (valor === 'mes') carregar(intervaloMes());
+    else if (valor === 'mes_passado') carregar(intervaloMesPassado());
   }
 
   function aplicarCustom(e) {
@@ -101,6 +110,7 @@ export default function Historico() {
 
   const funcPag = usePaginacao(dados?.por_funcionario || [], 8);
   const prodPag = usePaginacao(dados?.produtos_vendidos || [], 8);
+  const valePag = usePaginacao(dados?.vales || [], 8);
 
   return (
     <Layout
@@ -362,6 +372,64 @@ export default function Historico() {
                   <span className="font-bold text-violet-400">{brl(dados.total_vales)}</span>
                 </div>
               </div>
+
+              {/* Detalhe: cada vale do período (data, quem pegou, motivo e valor) */}
+              {dados.vales?.length > 0 && (
+                <div className="mt-4 border-t border-gray-700 pt-4">
+                  <p className="text-sm font-semibold text-gray-400 mb-2">
+                    Vales do período ({dados.vales.length})
+                  </p>
+
+                  {/* Tabela — desktop */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs font-semibold tracking-wide text-gray-500 border-b border-gray-700">
+                          <th className="py-2 pr-4">DATA</th>
+                          <th className="py-2 pr-4">FUNCIONÁRIO</th>
+                          <th className="py-2 pr-4">MOTIVO</th>
+                          <th className="py-2 pr-4 text-right">VALOR</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {valePag.itens.map((v) => (
+                          <tr key={v.id} className="border-b border-gray-700/50 last:border-0">
+                            <td className="py-2 pr-4 text-gray-400 whitespace-nowrap">{dataBR(v.data)}</td>
+                            <td className="py-2 pr-4 font-medium">{v.funcionario_nome}</td>
+                            <td className="py-2 pr-4 text-gray-400 max-w-[260px] truncate">{v.motivo || '—'}</td>
+                            <td className="py-2 pr-4 text-right font-bold text-violet-400 whitespace-nowrap">
+                              {brl(v.valor)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Cards — mobile */}
+                  <div className="sm:hidden space-y-2">
+                    {valePag.itens.map((v) => (
+                      <div key={v.id} className="bg-gray-700/50 rounded-xl p-3 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-sm truncate">{v.funcionario_nome}</span>
+                          <span className="font-bold text-sm text-violet-400 shrink-0">{brl(v.valor)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-xs text-gray-400">
+                          <span>{dataBR(v.data)}</span>
+                          <span className="truncate">{v.motivo || '—'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Paginacao
+                    pagina={valePag.pagina}
+                    totalPaginas={valePag.totalPaginas}
+                    total={valePag.total}
+                    onPagina={valePag.setPagina}
+                  />
+                </div>
+              )}
             </div>
           )}
 

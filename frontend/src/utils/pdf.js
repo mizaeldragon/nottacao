@@ -163,6 +163,20 @@ export function pdfHistorico(nomeEmpresa, dados) {
     });
   }
 
+  if (dados.vales?.length) {
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 8,
+      head: [['Data', 'Funcionário', 'Motivo', 'Vale']],
+      body: dados.vales.map((v) => [
+        dataBR(v.data),
+        v.funcionario_nome,
+        v.motivo || '—',
+        brl(v.valor),
+      ]),
+      headStyles: { fillColor: LARANJA },
+    });
+  }
+
   if ((dados.total_vales || 0) > 0) {
     autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 4,

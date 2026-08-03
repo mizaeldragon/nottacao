@@ -63,23 +63,46 @@ router.get('/', async (req, res) => {
     totalProdutos = Math.round(totalProdutos * 100) / 100;
     const produtosVendidos = Object.values(prodMap).sort((a, b) => b.total - a.total);
 
-    // Vales pagos a funcionários no período
+    // Vales pagos a funcionários no período (total por funcionário)
     const valesRes = await query(
-      `SELECT m.funcionario_id, COALESCE(SUM(m.valor), 0) AS total_vales
+      `SELECT m.funcionario_id, f.nome AS funcionario_nome,
+              COALESCE(SUM(m.valor), 0) AS total_vales
        FROM movimentos_caixa m
        JOIN caixa_dia c ON c.id = m.caixa_id
+       LEFT JOIN funcionarios f ON f.id = m.funcionario_id
        WHERE c.tenant_id = $1 AND m.tipo = 'sangria' AND m.funcionario_id IS NOT NULL
          AND c.data BETWEEN $2 AND $3
-       GROUP BY m.funcionario_id`,
+       GROUP BY m.funcionario_id, f.nome`,
       [req.user.tenant_id, inicio, fim]
     );
     const valesMap = {};
+    const valesNome = {};
     let totalValesPeriodo = 0;
     for (const v of valesRes.rows) {
       valesMap[v.funcionario_id] = Number(v.total_vales);
+      valesNome[v.funcionario_id] = v.funcionario_nome || 'Funcionário removido';
       totalValesPeriodo += Number(v.total_vales);
     }
     totalValesPeriodo = Math.round(totalValesPeriodo * 100) / 100;
+
+    // Lista detalhada dos vales — para o dono conferir data, valor e motivo de cada um.
+    // A data vem como texto YYYY-MM-DD para não sofrer deslocamento de fuso no front.
+    const valesDetalheRes = await query(
+      `SELECT m.id, TO_CHAR(c.data, 'YYYY-MM-DD') AS data, m.valor, m.motivo,
+              m.forma_pagamento, m.created_at, f.nome AS funcionario_nome
+       FROM movimentos_caixa m
+       JOIN caixa_dia c ON c.id = m.caixa_id
+       LEFT JOIN funcionarios f ON f.id = m.funcionario_id
+       WHERE c.tenant_id = $1 AND m.tipo = 'sangria' AND m.funcionario_id IS NOT NULL
+         AND c.data BETWEEN $2 AND $3
+       ORDER BY c.data DESC, m.created_at DESC`,
+      [req.user.tenant_id, inicio, fim]
+    );
+    const vales = valesDetalheRes.rows.map((v) => ({
+      ...v,
+      valor: Number(v.valor),
+      funcionario_nome: v.funcionario_nome || 'Funcionário removido',
+    }));
 
     // Vendas por forma (PDV + serviços; mistos desmembrados pelo JSON pagamentos)
     const porForma = { pix: 0, cartao_credito: 0, cartao_debito: 0, dinheiro: 0 };
@@ -156,6 +179,20 @@ router.get('/', async (req, res) => {
       total_vales: Math.round((valesMap[f.funcionario_id] || 0) * 100) / 100,
     }));
 
+    // Quem pegou vale no período mas não fez serviço nele também precisa aparecer,
+    // senão o vale some da tabela e do card de vales (só entrava no total geral).
+    for (const [funcId, total] of Object.entries(valesMap)) {
+      if (porFuncionario.some((f) => f.funcionario_id === funcId)) continue;
+      porFuncionario.push({
+        funcionario_id: funcId,
+        nome: valesNome[funcId],
+        qtd: 0,
+        comissao: 0,
+        total_gerado: 0,
+        total_vales: Math.round(total * 100) / 100,
+      });
+    }
+
     res.json({
       periodo: { inicio, fim },
       por_dia: porDia,
@@ -163,6 +200,7 @@ router.get('/', async (req, res) => {
       total_funcionarios: totalFuncionarios,
       total_patrao: totalPatrao,
       total_vales: totalValesPeriodo,
+      vales,
       qtd_servicos: lancamentos.length,
       total_produtos: totalProdutos,
       qtd_produtos: qtdProdutos,
