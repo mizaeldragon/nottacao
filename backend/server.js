@@ -16,6 +16,7 @@ import adminRoutes from './routes/admin.js';
 import asaasRoutes from './routes/asaas.js';
 import relatorioSemanalRoutes from './routes/relatorioSemanal.js';
 import cron from 'node-cron';
+import { query } from './db/connection.js';
 import { gerarRelatoriosTodos } from './utils/gerarRelatorio.js';
 
 dotenv.config();
