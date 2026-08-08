@@ -78,8 +78,18 @@ router.delete('/:id', async (req, res) => {
        WHERE m.funcionario_id = $1 AND m.tipo = 'sangria' AND c.tenant_id = $2`,
       [req.params.id, req.user.tenant_id]
     );
+    // Vale já abatido (descontado no acerto ou devolvido em dinheiro) não pesa mais
+    const abatRes = await query(
+      `SELECT COALESCE(SUM(valor),0) AS total FROM abatimentos_vale
+       WHERE funcionario_id = $1 AND tenant_id = $2`,
+      [req.params.id, req.user.tenant_id]
+    );
+    const valesAberto = Math.max(
+      Number(valesRes.rows[0].total) - Number(abatRes.rows[0].total),
+      0
+    );
     const saldo = Math.round(
-      (Number(ganhoRes.rows[0].total) - Number(pagoRes.rows[0].total) - Number(valesRes.rows[0].total)) * 100
+      (Number(ganhoRes.rows[0].total) - Number(pagoRes.rows[0].total) - valesAberto) * 100
     ) / 100;
     if (Math.abs(saldo) > 0.01) {
       const msg = saldo > 0

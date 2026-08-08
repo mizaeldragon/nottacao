@@ -227,6 +227,22 @@ CREATE TABLE IF NOT EXISTS pagamentos_comissao (
 );
 CREATE INDEX IF NOT EXISTS idx_pag_comissao_func ON pagamentos_comissao(funcionario_id);
 
+-- Abatimentos de vale: quita (total ou parcialmente) os vales que o funcionário já pegou.
+-- origem = 'desconto'  -> descontado do acerto de comissão, não mexe no caixa
+--          'dinheiro'  -> funcionário devolveu em espécie, entra como suprimento no caixa
+CREATE TABLE IF NOT EXISTS abatimentos_vale (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES tenants(id),
+  funcionario_id UUID REFERENCES funcionarios(id),
+  valor DECIMAL(10,2) NOT NULL DEFAULT 0,
+  origem VARCHAR(20) NOT NULL DEFAULT 'desconto',
+  observacao TEXT,
+  movimento_caixa_id UUID REFERENCES movimentos_caixa(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_abat_vale_func ON abatimentos_vale(funcionario_id);
+CREATE INDEX IF NOT EXISTS idx_abat_vale_tenant ON abatimentos_vale(tenant_id);
+
 -- Relatórios semanais gerados por IA
 CREATE TABLE IF NOT EXISTS relatorios_semanais (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

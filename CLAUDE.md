@@ -121,6 +121,13 @@ O dono cria/edita o percentual por serviço na aba **Serviços** de Ajustes (`Ca
   - **DRE/lucro real:** faturamento (serviços+produtos) − comissões − CMV (custo dos vendidos) − despesas fixas.
   - **Despesas fixas:** tabela `despesas` (CRUD).
   - **Acerto de comissão:** tabela `pagamentos_comissao`; saldo a pagar por funcionário (ganho − pago) e registrar pagamento.
+  - **Abatimento de vale:** vale = sangria de caixa com `funcionario_id`. Tabela `abatimentos_vale`
+    (`origem` = `desconto` não mexe no caixa | `dinheiro` gera suprimento no caixa aberto, ligado por
+    `movimento_caixa_id`). A coluna da tela é **VALE EM ABERTO** = total de vales − abatido, e é ela
+    que entra no `saldo` (ganho − pago − vales_aberto). Rotas: `GET /financeiro/vales/:funcionarioId`,
+    `POST /financeiro/vales/abater`, `DELETE /financeiro/vales/abatimento/:id` (desfaz; devolução em
+    dinheiro só enquanto o caixa estiver aberto). O `DELETE /caixa/movimento/:id` recusa apagar o
+    suprimento de uma devolução. O total histórico de vales (Histórico/PDF/relatório IA) não muda.
 - **Clientes + Fiado (`/clientes`):** `routes/clientes.js`. Tabelas `clientes` e `contas_receber`.
   PDV tem opção **À vista / Fiado** (fiado não exige caixa, vira conta a receber; receber pagamento entra no caixa como suprimento "Recebimento fiado").
 - **Caixa:** conferência no fechamento (`valor_contado`/`diferenca` em `caixa_dia`), `GET /caixa/fechados` + `GET /caixa/:id`

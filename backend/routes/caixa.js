@@ -268,6 +268,18 @@ router.post('/movimento', async (req, res) => {
 // DELETE /api/caixa/movimento/:id — remove uma sangria/suprimento do caixa aberto
 router.delete('/movimento/:id', async (req, res) => {
   try {
+    // Devolução de vale é controlada pelo Financeiro; apagar só o movimento deixaria
+    // o abatimento sem lastro no caixa.
+    const vinculado = await query(
+      `SELECT id FROM abatimentos_vale WHERE movimento_caixa_id = $1 AND tenant_id = $2`,
+      [req.params.id, req.user.tenant_id]
+    );
+    if (vinculado.rows.length > 0) {
+      return res.status(400).json({
+        error: 'Esse suprimento é a devolução de um vale. Desfaça o abatimento em Financeiro.',
+      });
+    }
+
     const { rows } = await query(
       `DELETE FROM movimentos_caixa m
        USING caixa_dia c

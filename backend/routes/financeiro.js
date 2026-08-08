@@ -182,10 +182,22 @@ router.get('/comissoes', async (req, res) => {
     const valesMap = {};
     vales.rows.forEach((v) => (valesMap[v.funcionario_id] = Number(v.total_vales)));
 
+    // Abatimentos: quanto de vale já foi quitado (desconto no acerto ou devolução em dinheiro)
+    const abatidos = await query(
+      `SELECT funcionario_id, COALESCE(SUM(valor),0) AS total_abatido
+       FROM abatimentos_vale WHERE tenant_id = $1 GROUP BY funcionario_id`,
+      [req.user.tenant_id]
+    );
+    const abatidoMap = {};
+    abatidos.rows.forEach((a) => (abatidoMap[a.funcionario_id] = Number(a.total_abatido)));
+
     const lista = ganho.rows.map((g) => {
       const totalGanho = round(g.total_ganho);
       const totalPago = round(pagoMap[g.funcionario_id] || 0);
       const totalVales = round(valesMap[g.funcionario_id] || 0);
+      const totalAbatido = round(abatidoMap[g.funcionario_id] || 0);
+      // O que ainda pesa no acerto é só o vale em aberto (o abatido já foi quitado)
+      const valesAberto = round(Math.max(totalVales - totalAbatido, 0));
       return {
         funcionario_id: g.funcionario_id,
         nome: g.nome,
@@ -193,7 +205,9 @@ router.get('/comissoes', async (req, res) => {
         total_ganho: totalGanho,
         total_pago: totalPago,
         total_vales: totalVales,
-        saldo: round(totalGanho - totalPago - totalVales),
+        total_abatido: totalAbatido,
+        vales_aberto: valesAberto,
+        saldo: round(totalGanho - totalPago - valesAberto),
       };
     });
     res.json(lista);
@@ -233,6 +247,159 @@ router.get('/comissoes/:funcionarioId/pagamentos', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao listar pagamentos' });
+  }
+});
+
+// ---------- Abatimento de vale ----------
+// Soma dos vales (sangrias vinculadas ao funcionário) e do que já foi abatido.
+async function saldoVale(tenantId, funcionarioId) {
+  const vales = await query(
+    `SELECT COALESCE(SUM(m.valor),0) AS total FROM movimentos_caixa m
+     JOIN caixa_dia c ON c.id = m.caixa_id
+     WHERE c.tenant_id = $1 AND m.funcionario_id = $2 AND m.tipo = 'sangria'`,
+    [tenantId, funcionarioId]
+  );
+  const abat = await query(
+    `SELECT COALESCE(SUM(valor),0) AS total FROM abatimentos_vale
+     WHERE tenant_id = $1 AND funcionario_id = $2`,
+    [tenantId, funcionarioId]
+  );
+  const total = round(vales.rows[0].total);
+  const abatido = round(abat.rows[0].total);
+  return { total, abatido, aberto: round(total - abatido) };
+}
+
+// GET /api/financeiro/vales/:funcionarioId — vales do funcionário + abatimentos já feitos
+router.get('/vales/:funcionarioId', async (req, res) => {
+  try {
+    const { funcionarioId } = req.params;
+    const lancados = await query(
+      `SELECT m.id, TO_CHAR(c.data, 'YYYY-MM-DD') AS data, m.valor, m.motivo
+       FROM movimentos_caixa m
+       JOIN caixa_dia c ON c.id = m.caixa_id
+       WHERE c.tenant_id = $1 AND m.funcionario_id = $2 AND m.tipo = 'sangria'
+       ORDER BY c.data DESC, m.created_at DESC`,
+      [req.user.tenant_id, funcionarioId]
+    );
+    const abatimentos = await query(
+      `SELECT id, valor, origem, observacao, created_at
+       FROM abatimentos_vale
+       WHERE tenant_id = $1 AND funcionario_id = $2
+       ORDER BY created_at DESC`,
+      [req.user.tenant_id, funcionarioId]
+    );
+    const saldo = await saldoVale(req.user.tenant_id, funcionarioId);
+    res.json({
+      ...saldo,
+      vales: lancados.rows.map((v) => ({ ...v, valor: Number(v.valor) })),
+      abatimentos: abatimentos.rows.map((a) => ({ ...a, valor: Number(a.valor) })),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar vales' });
+  }
+});
+
+// POST /api/financeiro/vales/abater — quita parte (ou tudo) do vale do funcionário
+// body: { funcionario_id, valor, origem: 'desconto'|'dinheiro', observacao }
+router.post('/vales/abater', async (req, res) => {
+  const { funcionario_id, valor, origem, observacao } = req.body;
+  if (!funcionario_id) return res.status(400).json({ error: 'Funcionário obrigatório' });
+  if (!valor || Number(valor) <= 0) return res.status(400).json({ error: 'Valor inválido' });
+  const tipoAbat = origem === 'dinheiro' ? 'dinheiro' : 'desconto';
+
+  try {
+    const func = await query(
+      `SELECT id, nome FROM funcionarios WHERE id = $1 AND tenant_id = $2`,
+      [funcionario_id, req.user.tenant_id]
+    );
+    if (func.rows.length === 0) return res.status(404).json({ error: 'Funcionário não encontrado' });
+
+    const saldo = await saldoVale(req.user.tenant_id, funcionario_id);
+    if (saldo.aberto <= 0) {
+      return res.status(400).json({ error: 'Esse funcionário não tem vale em aberto.' });
+    }
+    if (round(valor) > saldo.aberto + 0.001) {
+      return res.status(400).json({
+        error: `Valor maior que o vale em aberto (R$ ${saldo.aberto.toFixed(2).replace('.', ',')}).`,
+      });
+    }
+
+    // Devolução em dinheiro entra no caixa como suprimento; desconto no acerto não mexe no caixa
+    let movimentoId = null;
+    if (tipoAbat === 'dinheiro') {
+      const caixa = await query(
+        `SELECT id FROM caixa_dia WHERE tenant_id = $1 AND status = 'aberto' LIMIT 1`,
+        [req.user.tenant_id]
+      );
+      if (caixa.rows.length === 0) {
+        return res.status(400).json({
+          error: 'Nenhum caixa aberto. Abra o caixa para registrar a devolução em dinheiro.',
+        });
+      }
+      const mov = await query(
+        `INSERT INTO movimentos_caixa (caixa_id, tipo, valor, motivo, funcionario_id, forma_pagamento)
+         VALUES ($1, 'suprimento', $2, $3, $4, 'dinheiro') RETURNING id`,
+        [caixa.rows[0].id, Number(valor), `Devolução de vale — ${func.rows[0].nome}`, funcionario_id]
+      );
+      movimentoId = mov.rows[0].id;
+    }
+
+    const { rows } = await query(
+      `INSERT INTO abatimentos_vale
+         (tenant_id, funcionario_id, valor, origem, observacao, movimento_caixa_id)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [
+        req.user.tenant_id,
+        funcionario_id,
+        Number(valor),
+        tipoAbat,
+        observacao?.trim() || null,
+        movimentoId,
+      ]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao abater vale' });
+  }
+});
+
+// DELETE /api/financeiro/vales/abatimento/:id — desfaz um abatimento lançado errado
+router.delete('/vales/abatimento/:id', async (req, res) => {
+  try {
+    const abat = await query(
+      `SELECT * FROM abatimentos_vale WHERE id = $1 AND tenant_id = $2`,
+      [req.params.id, req.user.tenant_id]
+    );
+    if (abat.rows.length === 0) return res.status(404).json({ error: 'Abatimento não encontrado' });
+
+    // Se entrou dinheiro no caixa, só dá pra desfazer enquanto o caixa estiver aberto —
+    // senão o fechamento já conferido mudaria depois do fato.
+    const movId = abat.rows[0].movimento_caixa_id;
+    if (movId) {
+      const del = await query(
+        `DELETE FROM movimentos_caixa m
+         USING caixa_dia c
+         WHERE m.id = $1 AND m.caixa_id = c.id AND c.tenant_id = $2 AND c.status = 'aberto'
+         RETURNING m.id`,
+        [movId, req.user.tenant_id]
+      );
+      if (del.rows.length === 0) {
+        return res.status(400).json({
+          error: 'O caixa dessa devolução já foi fechado. Lance um novo vale para corrigir.',
+        });
+      }
+    }
+
+    await query(`DELETE FROM abatimentos_vale WHERE id = $1 AND tenant_id = $2`, [
+      req.params.id,
+      req.user.tenant_id,
+    ]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao desfazer abatimento' });
   }
 });
 
