@@ -128,6 +128,11 @@ O dono cria/edita o percentual por serviço na aba **Serviços** de Ajustes (`Ca
     `POST /financeiro/vales/abater`, `DELETE /financeiro/vales/abatimento/:id` (desfaz; devolução em
     dinheiro só enquanto o caixa estiver aberto). O `DELETE /caixa/movimento/:id` recusa apagar o
     suprimento de uma devolução. O total histórico de vales (Histórico/PDF/relatório IA) não muda.
+  - **Corrigir vale lançado errado:** `PUT /financeiro/vales/:movimentoId` (valor, funcionário, motivo)
+    e `DELETE /financeiro/vales/:movimentoId` — funcionam **inclusive em caixa já fechado**; quando o
+    caixa tinha `valor_contado`, a `diferenca` é reajustada (sangria menor ⇒ saldo do dia maior).
+    Recusa reduzir/apagar abaixo do que já foi abatido. UI: modal **Vales — <funcionário>** no
+    Financeiro (lista os vales com editar/apagar + o abater), botão aparece quando `total_vales > 0`.
 - **Clientes + Fiado (`/clientes`):** `routes/clientes.js`. Tabelas `clientes` e `contas_receber`.
   PDV tem opção **À vista / Fiado** (fiado não exige caixa, vira conta a receber; receber pagamento entra no caixa como suprimento "Recebimento fiado").
 - **Caixa:** conferência no fechamento (`valor_contado`/`diferenca` em `caixa_dia`), `GET /caixa/fechados` + `GET /caixa/:id`

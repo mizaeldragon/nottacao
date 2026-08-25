@@ -274,7 +274,8 @@ router.get('/vales/:funcionarioId', async (req, res) => {
   try {
     const { funcionarioId } = req.params;
     const lancados = await query(
-      `SELECT m.id, TO_CHAR(c.data, 'YYYY-MM-DD') AS data, m.valor, m.motivo
+      `SELECT m.id, TO_CHAR(c.data, 'YYYY-MM-DD') AS data, m.valor, m.motivo,
+              c.status AS caixa_status
        FROM movimentos_caixa m
        JOIN caixa_dia c ON c.id = m.caixa_id
        WHERE c.tenant_id = $1 AND m.funcionario_id = $2 AND m.tipo = 'sangria'
@@ -362,6 +363,116 @@ router.post('/vales/abater', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao abater vale' });
+  }
+});
+
+// Carrega um vale (sangria com funcionário) garantindo que é do tenant.
+async function carregarVale(tenantId, movimentoId) {
+  const { rows } = await query(
+    `SELECT m.*, c.id AS caixa_id, c.status AS caixa_status,
+            c.valor_contado, c.diferenca
+     FROM movimentos_caixa m
+     JOIN caixa_dia c ON c.id = m.caixa_id
+     WHERE m.id = $1 AND c.tenant_id = $2
+       AND m.tipo = 'sangria' AND m.funcionario_id IS NOT NULL`,
+    [movimentoId, tenantId]
+  );
+  return rows[0] || null;
+}
+
+// Mexer no valor de um vale muda o saldo daquele dia. Se o caixa já foi conferido,
+// a diferença (sobra/falta) precisa acompanhar: saldo sobe D => diferença cai D.
+async function ajustarConferencia(caixaId, valorContado, diferencaAtual, deltaSaldo) {
+  if (valorContado === null || valorContado === undefined) return;
+  const nova = round(Number(diferencaAtual || 0) - deltaSaldo);
+  await query(`UPDATE caixa_dia SET diferenca = $1 WHERE id = $2`, [nova, caixaId]);
+}
+
+// PUT /api/financeiro/vales/:movimentoId — corrige um vale lançado errado
+// body: { valor, funcionario_id, motivo }
+router.put('/vales/:movimentoId', async (req, res) => {
+  const { valor, funcionario_id, motivo } = req.body;
+  try {
+    const vale = await carregarVale(req.user.tenant_id, req.params.movimentoId);
+    if (!vale) return res.status(404).json({ error: 'Vale não encontrado' });
+
+    const valorAntigo = round(vale.valor);
+    const valorNovo = valor === undefined || valor === null || valor === ''
+      ? valorAntigo
+      : round(valor);
+    if (valorNovo <= 0) return res.status(400).json({ error: 'Valor inválido' });
+
+    const funcAntigo = vale.funcionario_id;
+    const funcNovo = funcionario_id || funcAntigo;
+
+    const dest = await query(
+      `SELECT id, nome FROM funcionarios WHERE id = $1 AND tenant_id = $2`,
+      [funcNovo, req.user.tenant_id]
+    );
+    if (dest.rows.length === 0) return res.status(404).json({ error: 'Funcionário não encontrado' });
+
+    // O total de vales do funcionário não pode ficar abaixo do que já foi abatido,
+    // senão o acerto passa a mostrar vale negativo.
+    const saldoAntigo = await saldoVale(req.user.tenant_id, funcAntigo);
+    const totalAntigoDepois = funcNovo === funcAntigo
+      ? round(saldoAntigo.total - valorAntigo + valorNovo)
+      : round(saldoAntigo.total - valorAntigo);
+    if (totalAntigoDepois < saldoAntigo.abatido - 0.001) {
+      return res.status(400).json({
+        error: `Esse funcionário já tem R$ ${saldoAntigo.abatido.toFixed(2).replace('.', ',')} de vale abatido. Desfaça o abatimento antes de reduzir o vale.`,
+      });
+    }
+
+    // Motivo automático ("Vale — Fulano") acompanha a troca de funcionário
+    const motivoAuto = /^Vale — /.test(vale.motivo || '');
+    const motivoFinal = motivo !== undefined && motivo !== null && String(motivo).trim() !== ''
+      ? String(motivo).trim()
+      : motivoAuto || !vale.motivo
+        ? `Vale — ${dest.rows[0].nome}`
+        : vale.motivo;
+
+    const { rows } = await query(
+      `UPDATE movimentos_caixa SET valor = $1, funcionario_id = $2, motivo = $3
+       WHERE id = $4 RETURNING *`,
+      [valorNovo, funcNovo, motivoFinal, vale.id]
+    );
+
+    await ajustarConferencia(
+      vale.caixa_id, vale.valor_contado, vale.diferenca,
+      round(valorAntigo - valorNovo) // sangria menor => saldo do dia maior
+    );
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao editar vale' });
+  }
+});
+
+// DELETE /api/financeiro/vales/:movimentoId — apaga um vale lançado errado
+router.delete('/vales/:movimentoId', async (req, res) => {
+  try {
+    const vale = await carregarVale(req.user.tenant_id, req.params.movimentoId);
+    if (!vale) return res.status(404).json({ error: 'Vale não encontrado' });
+
+    const saldo = await saldoVale(req.user.tenant_id, vale.funcionario_id);
+    const totalDepois = round(saldo.total - round(vale.valor));
+    if (totalDepois < saldo.abatido - 0.001) {
+      return res.status(400).json({
+        error: `Esse funcionário já tem R$ ${saldo.abatido.toFixed(2).replace('.', ',')} de vale abatido. Desfaça o abatimento antes de apagar o vale.`,
+      });
+    }
+
+    await query(`DELETE FROM movimentos_caixa WHERE id = $1`, [vale.id]);
+    await ajustarConferencia(
+      vale.caixa_id, vale.valor_contado, vale.diferenca,
+      round(vale.valor) // sangria some => saldo do dia sobe esse valor
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao apagar vale' });
   }
 });
 

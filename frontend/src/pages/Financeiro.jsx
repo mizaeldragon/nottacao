@@ -23,6 +23,7 @@ export default function Financeiro() {
   const [despesas, setDespesas] = useState([]);
   const [dre, setDre] = useState(null);
   const [comissoes, setComissoes] = useState([]);
+  const [funcionarios, setFuncionarios] = useState([]);
   const [periodo, setPeriodo] = useState(intervaloMes());
   const [modal, setModal] = useState(null); // { despesa? } | null
   const [pagarModal, setPagarModal] = useState(null); // funcionário comissão
@@ -32,14 +33,16 @@ export default function Financeiro() {
 
   async function carregar() {
     try {
-      const [d, r, c] = await Promise.all([
+      const [d, r, c, f] = await Promise.all([
         api.get('/financeiro/despesas'),
         api.get('/financeiro/dre', { params: periodo }),
         api.get('/financeiro/comissoes'),
+        api.get('/funcionarios'),
       ]);
       setDespesas(d.data);
       setDre(r.data);
       setComissoes(c.data);
+      setFuncionarios(f.data);
     } catch (err) {
       setErro(err.response?.data?.error || 'Erro ao carregar');
     }
@@ -257,7 +260,7 @@ export default function Financeiro() {
                     <span>Pago: {brl(c.total_pago)}</span>
                   </div>
                   {c.total_vales > 0 && (
-                    <p className="text-xs text-violet-400 mb-3">
+                    <p className="text-xs text-orange-600 mb-3">
                       Vale em aberto: <span className="font-semibold">{brl(c.vales_aberto)}</span>
                       {c.total_abatido > 0 && (
                         <span className="text-gray-500"> · abatido {brl(c.total_abatido)} de {brl(c.total_vales)}</span>
@@ -272,12 +275,12 @@ export default function Financeiro() {
                     >
                       <Wallet size={13} /> Registrar pagamento
                     </button>
-                    {c.vales_aberto > 0 && (
+                    {c.total_vales > 0 && (
                       <button
                         onClick={() => setValeModal(c)}
-                        className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold bg-violet-500 hover:bg-violet-600"
+                        className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold bg-orange-500 hover:bg-orange-600"
                       >
-                        <HandCoins size={13} /> Abater vale
+                        <HandCoins size={13} /> Vales
                       </button>
                     )}
                   </div>
@@ -306,7 +309,7 @@ export default function Financeiro() {
                       <td className="py-3 pr-4 text-gray-400">{c.qtd_servicos}</td>
                       <td className="py-3 pr-4 text-right">{brl(c.total_ganho)}</td>
                       <td className="py-3 pr-4 text-right text-gray-400">{brl(c.total_pago)}</td>
-                      <td className="py-3 pr-4 text-right text-violet-400">
+                      <td className="py-3 pr-4 text-right text-orange-600">
                         {c.total_vales > 0 ? (
                           <>
                             {brl(c.vales_aberto)}
@@ -323,13 +326,13 @@ export default function Financeiro() {
                       </td>
                       <td className="py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {c.vales_aberto > 0 && (
+                          {c.total_vales > 0 && (
                             <button
                               onClick={() => setValeModal(c)}
-                              title="Abater vale"
-                              className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-semibold bg-violet-500 hover:bg-violet-600"
+                              title="Ver, abater ou corrigir vales"
+                              className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-semibold bg-orange-500 hover:bg-orange-600"
                             >
-                              <HandCoins size={13} /> Abater
+                              <HandCoins size={13} /> Vales
                             </button>
                           )}
                           <button
@@ -372,8 +375,9 @@ export default function Financeiro() {
         />
       )}
       {valeModal && (
-        <AbaterValeModal
+        <ValesModal
           comissao={valeModal}
+          funcionarios={funcionarios}
           onClose={() => setValeModal(null)}
           onSalvo={() => {
             setValeModal(null);
@@ -449,7 +453,8 @@ function PagarComissaoModal({ comissao, onClose, onSalvo }) {
 }
 
 // Quita parte (ou tudo) do vale do funcionário: ou desconta no acerto, ou ele devolve em dinheiro.
-function AbaterValeModal({ comissao, onClose, onSalvo }) {
+// Vales de um funcionário: abater (quitar) e corrigir/apagar vale lançado errado.
+function ValesModal({ comissao, funcionarios, onClose, onSalvo }) {
   const [valor, setValor] = useState('');
   const [origem, setOrigem] = useState('desconto');
   const [obs, setObs] = useState('');
@@ -457,6 +462,8 @@ function AbaterValeModal({ comissao, onClose, onSalvo }) {
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [mudou, setMudou] = useState(false);
+  const [editando, setEditando] = useState(null); // { id, valor, funcionario_id, motivo }
+  const [confirmando, setConfirmando] = useState(null); // id do vale a apagar
 
   async function carregarDetalhe() {
     try {
@@ -473,7 +480,7 @@ function AbaterValeModal({ comissao, onClose, onSalvo }) {
 
   const aberto = detalhe ? detalhe.aberto : comissao.vales_aberto;
 
-  async function salvar(e) {
+  async function abater(e) {
     e.preventDefault();
     setErro('');
     if (!valor || Number(valor) <= 0) return setErro('Informe um valor válido');
@@ -504,107 +511,251 @@ function AbaterValeModal({ comissao, onClose, onSalvo }) {
     }
   }
 
+  async function salvarEdicao(e) {
+    e.preventDefault();
+    setErro('');
+    if (!editando.valor || Number(editando.valor) <= 0) return setErro('Informe um valor válido');
+    try {
+      await api.put(`/financeiro/vales/${editando.id}`, {
+        valor: Number(editando.valor),
+        funcionario_id: editando.funcionario_id,
+        motivo: editando.motivo,
+      });
+      setEditando(null);
+      setMudou(true);
+      carregarDetalhe();
+    } catch (err) {
+      setErro(err.response?.data?.error || 'Erro ao salvar');
+    }
+  }
+
+  async function apagarVale(id) {
+    setErro('');
+    try {
+      await api.delete(`/financeiro/vales/${id}`);
+      setConfirmando(null);
+      setMudou(true);
+      carregarDetalhe();
+    } catch (err) {
+      setConfirmando(null);
+      setErro(err.response?.data?.error || 'Erro ao apagar');
+    }
+  }
+
   const fechar = () => (mudou ? onSalvo() : onClose());
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-lg">Abater vale</h3>
+          <h3 className="font-bold text-lg">Vales — {comissao.nome}</h3>
           <button onClick={fechar} className="text-gray-400 hover:text-gray-900">
             <X size={20} />
           </button>
         </div>
 
-        <div className="bg-gray-900 rounded-lg p-3 mb-3">
-          <p className="font-semibold">{comissao.nome}</p>
-          <p className="text-sm text-gray-400">
-            Vale em aberto: <span className="font-semibold text-violet-400">{brl(aberto)}</span>
+        <div className="bg-gray-900 rounded-lg p-3 mb-2 flex items-center justify-between text-sm">
+          <span className="text-gray-400">Vale em aberto</span>
+          <span className="font-bold text-orange-600">{brl(aberto)}</span>
+        </div>
+        {detalhe?.abatido > 0 && (
+          <p className="mb-4 text-xs text-gray-500">
+            Total lançado {brl(detalhe.total)} · já abatido {brl(detalhe.abatido)}
           </p>
-          {detalhe?.abatido > 0 && (
-            <p className="text-xs text-gray-500">
-              Já abatido: {brl(detalhe.abatido)} de {brl(detalhe.total)}
-            </p>
+        )}
+
+        {erro && <p className="text-red-400 text-sm mb-3 mt-3">{erro}</p>}
+
+        {/* Vales lançados — corrigir ou apagar o que foi lançado errado */}
+        <p className="text-xs font-semibold text-gray-400 mb-2 mt-4">VALES LANÇADOS</p>
+        <div className="space-y-1.5 mb-5">
+          {detalhe?.vales?.length === 0 && (
+            <p className="text-sm text-gray-500">Nenhum vale lançado.</p>
+          )}
+          {detalhe?.vales?.map((v) =>
+            editando?.id === v.id ? (
+              <form key={v.id} onSubmit={salvarEdicao} className="bg-gray-900 rounded-lg p-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] text-gray-400 mb-1">Valor (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      autoFocus
+                      value={editando.valor}
+                      onChange={(e) => setEditando({ ...editando, valor: e.target.value })}
+                      className="w-full h-10 bg-gray-700 border border-gray-600 rounded-lg px-2 outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-gray-400 mb-1">Funcionário</label>
+                    <select
+                      value={editando.funcionario_id}
+                      onChange={(e) => setEditando({ ...editando, funcionario_id: e.target.value })}
+                      className="w-full h-10 bg-gray-700 border border-gray-600 rounded-lg px-2 outline-none focus:border-orange-500"
+                    >
+                      {funcionarios.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] text-gray-400 mb-1">Motivo</label>
+                  <input
+                    value={editando.motivo}
+                    onChange={(e) => setEditando({ ...editando, motivo: e.target.value })}
+                    className="w-full h-10 bg-gray-700 border border-gray-600 rounded-lg px-2 outline-none focus:border-orange-500"
+                  />
+                </div>
+                {v.caixa_status === 'fechado' && (
+                  <p className="text-[11px] text-amber-600">
+                    O caixa de {dataBR(v.data)} já foi fechado — o saldo daquele dia muda.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button type="submit" className="flex-1 h-9 rounded-lg text-xs font-semibold bg-orange-500 hover:bg-orange-600">
+                    Salvar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditando(null)}
+                    className="flex-1 h-9 rounded-lg text-xs font-semibold bg-gray-700 hover:bg-gray-600"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            ) : confirmando === v.id ? (
+              <div key={v.id} className="bg-gray-900 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+                <p className="text-xs text-gray-300">
+                  Apagar o vale de {brl(v.valor)}?
+                  {v.caixa_status === 'fechado' && (
+                    <span className="block text-amber-600">O caixa de {dataBR(v.data)} já foi fechado.</span>
+                  )}
+                </p>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => apagarVale(v.id)} className="h-8 px-3 rounded-lg text-xs font-semibold bg-red-500 hover:bg-red-600">
+                    Apagar
+                  </button>
+                  <button
+                    onClick={() => setConfirmando(null)}
+                    className="h-8 px-3 rounded-lg text-xs font-semibold bg-gray-700 hover:bg-gray-600"
+                  >
+                    Não
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div key={v.id} className="flex items-center justify-between gap-2 bg-gray-900 rounded-lg px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{brl(v.valor)}</p>
+                  <p className="text-[11px] text-gray-500 truncate">
+                    {dataBR(v.data)}
+                    {v.caixa_status === 'fechado' ? ' · caixa fechado' : ''}
+                    {v.motivo ? ` · ${v.motivo}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() =>
+                      setEditando({
+                        id: v.id,
+                        valor: String(v.valor),
+                        funcionario_id: comissao.funcionario_id,
+                        motivo: v.motivo || '',
+                      })
+                    }
+                    title="Corrigir vale"
+                    className="text-gray-400 hover:text-orange-500 p-1"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button onClick={() => setConfirmando(v.id)} title="Apagar vale" className="text-gray-400 hover:text-red-500 p-1">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            )
           )}
         </div>
 
-        <form onSubmit={salvar} className="space-y-3">
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Valor a abater (R$)</label>
-            <input
-              type="number"
-              step="0.01"
-              inputMode="decimal"
-              autoFocus
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-              placeholder="0,00"
-              className={inputCls}
-            />
-            <button
-              type="button"
-              onClick={() => setValor(String(aberto))}
-              className="mt-1 text-xs text-violet-400 hover:text-violet-300"
-            >
-              Abater tudo ({brl(aberto)})
-            </button>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Como foi abatido?</label>
-            <div className="grid grid-cols-2 gap-2">
+        {/* Abater (quitar) o que ainda está em aberto */}
+        {aberto > 0 && (
+          <form onSubmit={abater} className="space-y-3 border-t border-gray-700 pt-4">
+            <p className="text-xs font-semibold text-gray-400">ABATER (QUITAR) O VALE</p>
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">Valor a abater (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                placeholder="0,00"
+                className={inputCls}
+              />
               <button
                 type="button"
-                onClick={() => setOrigem('desconto')}
-                className={`h-16 rounded-lg border text-xs font-semibold px-2 leading-tight ${
-                  origem === 'desconto'
-                    ? 'border-violet-500 bg-violet-500/15 text-violet-300'
-                    : 'border-gray-600 bg-gray-700 text-gray-300'
-                }`}
+                onClick={() => setValor(String(aberto))}
+                className="mt-1 text-xs text-orange-600 hover:text-orange-500"
               >
-                Descontado do pagamento
-                <span className="block font-normal text-gray-400">não mexe no caixa</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrigem('dinheiro')}
-                className={`h-16 rounded-lg border text-xs font-semibold px-2 leading-tight ${
-                  origem === 'dinheiro'
-                    ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300'
-                    : 'border-gray-600 bg-gray-700 text-gray-300'
-                }`}
-              >
-                Devolveu em dinheiro
-                <span className="block font-normal text-gray-400">entra no caixa</span>
+                Abater tudo ({brl(aberto)})
               </button>
             </div>
-            {origem === 'dinheiro' && (
-              <p className="mt-1 text-xs text-gray-400">
-                Entra como suprimento no caixa aberto (precisa ter caixa aberto).
-              </p>
-            )}
-          </div>
 
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Observação (opcional)</label>
-            <input
-              value={obs}
-              onChange={(e) => setObs(e.target.value)}
-              placeholder="Ex: acerto do mês"
-              className={inputCls}
-            />
-          </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">Como foi abatido?</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrigem('desconto')}
+                  className={`h-16 rounded-lg border text-xs font-semibold px-2 leading-tight ${
+                    origem === 'desconto'
+                      ? 'border-orange-500 bg-orange-500/15 text-orange-600'
+                      : 'border-gray-600 bg-gray-700 text-gray-300'
+                  }`}
+                >
+                  Descontado do pagamento
+                  <span className="block font-normal text-gray-400">não mexe no caixa</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrigem('dinheiro')}
+                  className={`h-16 rounded-lg border text-xs font-semibold px-2 leading-tight ${
+                    origem === 'dinheiro'
+                      ? 'border-orange-500 bg-orange-500/15 text-orange-600'
+                      : 'border-gray-600 bg-gray-700 text-gray-300'
+                  }`}
+                >
+                  Devolveu em dinheiro
+                  <span className="block font-normal text-gray-400">entra no caixa</span>
+                </button>
+              </div>
+              {origem === 'dinheiro' && (
+                <p className="mt-1 text-xs text-gray-400">
+                  Entra como suprimento no caixa aberto (precisa ter caixa aberto).
+                </p>
+              )}
+            </div>
 
-          {erro && <p className="text-red-400 text-sm">{erro}</p>}
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">Observação (opcional)</label>
+              <input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Ex: acerto do mês" className={inputCls} />
+            </div>
 
-          <button
-            type="submit"
-            disabled={salvando || aberto <= 0}
-            className="w-full h-12 flex items-center justify-center gap-2 bg-violet-500 hover:bg-violet-600 disabled:opacity-50 rounded-lg font-semibold"
-          >
-            <Check size={18} /> Abater do vale
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={salvando}
+              className="w-full h-12 flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 rounded-lg font-semibold"
+            >
+              <Check size={18} /> Abater do vale
+            </button>
+          </form>
+        )}
 
         {detalhe?.abatimentos?.length > 0 && (
           <div className="mt-5 border-t border-gray-700 pt-3">
@@ -620,11 +771,7 @@ function AbaterValeModal({ comissao, onClose, onSalvo }) {
                       {a.observacao ? ` · ${a.observacao}` : ''}
                     </p>
                   </div>
-                  <button
-                    onClick={() => desfazer(a.id)}
-                    title="Desfazer abatimento"
-                    className="text-gray-400 hover:text-red-500 p-1 shrink-0"
-                  >
+                  <button onClick={() => desfazer(a.id)} title="Desfazer abatimento" className="text-gray-400 hover:text-red-500 p-1 shrink-0">
                     <Undo2 size={15} />
                   </button>
                 </div>
