@@ -1,5 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { query } from '../db/connection.js';
 
 const router = express.Router();
@@ -104,6 +106,68 @@ router.patch('/tenants/:id/status', superAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar status' });
+  }
+});
+
+// PATCH /api/admin/tenants/:id/vencimento — muda só a data de expiração, sem mexer no status
+// body: { trial_expira_em: 'YYYY-MM-DD' | null }  (null = sem data de expiração)
+router.patch('/tenants/:id/vencimento', superAuth, async (req, res) => {
+  const { trial_expira_em } = req.body;
+  const data = trial_expira_em || null;
+  if (data && !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    return res.status(400).json({ error: 'Data inválida' });
+  }
+  try {
+    const { rowCount } = await query(
+      `UPDATE tenants SET trial_expira_em = $1 WHERE id = $2`,
+      [data, req.params.id]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Borracharia não encontrada' });
+    res.json({ ok: true, trial_expira_em: data });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar vencimento' });
+  }
+});
+
+// Senha temporária legível: sem caracteres ambíguos (0/O, 1/l/I) para ditar por telefone.
+const ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789abcdefghijkmnpqrstuvwxyz';
+function senhaTemporaria(tamanho = 10) {
+  let out = '';
+  for (let i = 0; i < tamanho; i++) {
+    out += ALFABETO[crypto.randomInt(ALFABETO.length)];
+  }
+  return out;
+}
+
+// POST /api/admin/tenants/:id/resetar-senha — gera senha temporária para o dono da borracharia.
+// A senha só volta nesta resposta; no banco fica o hash.
+router.post('/tenants/:id/resetar-senha', superAuth, async (req, res) => {
+  try {
+    const dono = await query(
+      `SELECT id, nome, email FROM usuarios
+       WHERE tenant_id = $1 AND role = 'admin'
+       ORDER BY created_at LIMIT 1`,
+      [req.params.id]
+    );
+    if (dono.rows.length === 0) {
+      return res.status(404).json({ error: 'Essa borracharia não tem usuário dono cadastrado.' });
+    }
+
+    const senha = senhaTemporaria();
+    await query(`UPDATE usuarios SET senha = $1 WHERE id = $2`, [
+      await bcrypt.hash(senha, 10),
+      dono.rows[0].id,
+    ]);
+    // Invalida links de "esqueci minha senha" que ainda estivessem valendo
+    await query(`UPDATE reset_senha SET usado = TRUE WHERE usuario_id = $1 AND usado = FALSE`, [
+      dono.rows[0].id,
+    ]);
+
+    res.json({ ok: true, nome: dono.rows[0].nome, email: dono.rows[0].email, senha });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao resetar senha' });
   }
 });
 

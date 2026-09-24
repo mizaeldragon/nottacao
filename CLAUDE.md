@@ -145,6 +145,12 @@ O dono cria/edita o percentual por serviço na aba **Serviços** de Ajustes (`Ca
 - **Super-admin (`/admin`, rota pública com login próprio):** `routes/admin.js`. Login por env
   **`SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_SENHA`** (padrão local `super@admin.com` / `superadmin` — TROCAR em produção).
   Token JWT com `{ super:true }`. Lista todas as borracharias + faturamento + MRR. Front usa axios isolado (`localStorage.admin_token`).
+  Ações por linha num **menu ⋮** (`MenuAcoes`, renderizado em portal com `position: fixed` — dentro do
+  `overflow-x-auto` da tabela o dropdown seria cortado): **Ativar/Bloquear** (`PATCH /tenants/:id/status`),
+  **Editar vencimento** (`PATCH /tenants/:id/vencimento`, só a data, não mexe no status; vazio = sem
+  vencimento), **Resetar senha** (`POST /tenants/:id/resetar-senha` — sorteia senha de 10 chars sem
+  caracteres ambíguos, salva o hash, invalida os links de "esqueci minha senha" pendentes e devolve a
+  senha em claro **uma única vez** pra tela) e **Excluir borracharia** (`DELETE /tenants/:id`).
 - **PWA instalável:** `public/manifest.webmanifest`, `public/icon.svg`, `public/sw.js` (stale-while-revalidate, ignora `/api`),
   registrado no `main.jsx`. `express.json` subiu p/ `5mb` (imagens base64 de produto).
 

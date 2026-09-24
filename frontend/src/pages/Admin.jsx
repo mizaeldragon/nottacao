@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Shield, LogOut, Building2, Users, CheckCircle, XCircle, Clock, DollarSign, Ban, PlayCircle, Trash2 } from 'lucide-react';
+import { Shield, LogOut, Building2, Users, CheckCircle, XCircle, Clock, DollarSign, Ban, PlayCircle, Trash2,
+  MoreVertical, CalendarClock, KeyRound, Copy, Check } from 'lucide-react';
 import { brl, dataBR } from '../utils/format';
 import { usePaginacao } from '../hooks/usePaginacao';
 import Paginacao from '../components/Paginacao';
@@ -77,6 +79,9 @@ function AdminPainel({ onLogout }) {
   const [msg, setMsg] = useState('');
   const [acao, setAcao] = useState(null); // { tenant, novoStatus } | { tenant, excluir: true }
   const [trialData, setTrialData] = useState(''); // data de expiração ao ativar
+  const [vencModal, setVencModal] = useState(null); // { tenant } — editar vencimento
+  const [senhaModal, setSenhaModal] = useState(null); // { tenant, nome, email, senha } — senha temporária
+  const [menuAberto, setMenuAberto] = useState(null); // id do tenant com o menu ⋮ aberto
 
   function carregar() {
     return Promise.all([adminApi.get('/resumo'), adminApi.get('/tenants')])
@@ -117,6 +122,35 @@ function AdminPainel({ onLogout }) {
       setAcao(null);
     }
     setTimeout(() => setMsg(''), 4000);
+  }
+
+  async function salvarVencimento(novaData) {
+    try {
+      await adminApi.patch(`/tenants/${vencModal.tenant.id}/vencimento`, {
+        trial_expira_em: novaData || null,
+      });
+      setMsg(
+        novaData
+          ? `Vencimento de "${vencModal.tenant.nome}" alterado.`
+          : `"${vencModal.tenant.nome}" ficou sem data de vencimento.`
+      );
+      setVencModal(null);
+      await carregar();
+    } catch (err) {
+      setErro(err.response?.data?.error || 'Erro ao salvar vencimento');
+      setVencModal(null);
+    }
+    setTimeout(() => setMsg(''), 4000);
+  }
+
+  async function resetarSenha(tenant) {
+    try {
+      const { data } = await adminApi.post(`/tenants/${tenant.id}/resetar-senha`);
+      setSenhaModal({ tenant, nome: data.nome, email: data.email, senha: data.senha });
+    } catch (err) {
+      setErro(err.response?.data?.error || 'Erro ao resetar senha');
+      setTimeout(() => setErro(''), 4000);
+    }
   }
 
   const STATUS = {
@@ -190,6 +224,18 @@ function AdminPainel({ onLogout }) {
           </div>
         )}
 
+        {vencModal && (
+          <VencimentoModal
+            tenant={vencModal.tenant}
+            onSalvar={salvarVencimento}
+            onFechar={() => setVencModal(null)}
+          />
+        )}
+
+        {senhaModal && (
+          <SenhaTemporariaModal dados={senhaModal} onFechar={() => setSenhaModal(null)} />
+        )}
+
         {resumo && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card label="BORRACHARIAS" valor={resumo.total_tenants} icon={Building2} />
@@ -239,33 +285,43 @@ function AdminPainel({ onLogout }) {
                         </td>
                         <td className="py-3 pr-4 text-right text-gray-400">{dataBR(t.created_at)}</td>
                         <td className="py-3 text-right">
-                          <div className="inline-flex items-center gap-1">
-                            {t.status !== 'ativo' && (
-                              <button
-                                onClick={() => setAcao({ tenant: t, novoStatus: 'ativo' })}
-                                title="Ativar"
-                                className="h-8 px-2.5 inline-flex items-center gap-1 bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-xs font-semibold transition-colors"
-                              >
-                                <PlayCircle size={13} /> Ativar
-                              </button>
-                            )}
-                            {t.status === 'ativo' && (
-                              <button
-                                onClick={() => setAcao({ tenant: t, novoStatus: 'bloqueado' })}
-                                title="Bloquear"
-                                className="h-8 px-2.5 inline-flex items-center gap-1 bg-red-500/15 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-semibold transition-colors"
-                              >
-                                <Ban size={13} /> Bloquear
-                              </button>
-                            )}
-                            <button
-                              onClick={() => setAcao({ tenant: t, excluir: true })}
-                              title="Excluir"
-                              className="h-8 w-8 inline-flex items-center justify-center bg-gray-700 hover:bg-red-500/20 text-gray-400 hover:text-red-400 rounded-lg transition-colors"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
+                          <MenuAcoes
+                            aberto={menuAberto === t.id}
+                            onAbrir={() => setMenuAberto(menuAberto === t.id ? null : t.id)}
+                            onFechar={() => setMenuAberto(null)}
+                            itens={[
+                              t.status !== 'ativo'
+                                ? {
+                                    label: 'Ativar',
+                                    Icon: PlayCircle,
+                                    cls: 'text-emerald-400',
+                                    onClick: () => setAcao({ tenant: t, novoStatus: 'ativo' }),
+                                  }
+                                : {
+                                    label: 'Bloquear',
+                                    Icon: Ban,
+                                    cls: 'text-red-400',
+                                    onClick: () => setAcao({ tenant: t, novoStatus: 'bloqueado' }),
+                                  },
+                              {
+                                label: 'Editar vencimento',
+                                Icon: CalendarClock,
+                                onClick: () => setVencModal({ tenant: t }),
+                              },
+                              {
+                                label: 'Resetar senha',
+                                Icon: KeyRound,
+                                onClick: () => resetarSenha(t),
+                              },
+                              {
+                                label: 'Excluir borracharia',
+                                Icon: Trash2,
+                                cls: 'text-red-400',
+                                separador: true,
+                                onClick: () => setAcao({ tenant: t, excluir: true }),
+                              },
+                            ]}
+                          />
                         </td>
                       </tr>
                     );
@@ -289,6 +345,196 @@ function Card({ label, valor, icon: Icon, destaque }) {
         <Icon size={18} className="text-gray-500" />
       </div>
       <p className={`text-2xl font-bold mt-2 ${destaque ? 'text-orange-500' : ''}`}>{valor}</p>
+    </div>
+  );
+}
+
+// Menu ⋮ de ações da linha. Vai em portal com position fixed porque o wrapper da
+// tabela tem overflow-x-auto — e overflow em um eixo faz o navegador cortar no outro.
+// Fecha ao clicar fora, apertar Esc ou rolar a página.
+function MenuAcoes({ aberto, onAbrir, onFechar, itens }) {
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+  const [pos, setPos] = useState(null);
+
+  // Altura estimada pra decidir se abre pra baixo ou pra cima perto do rodapé.
+  const altura = itens.length * 37 + itens.filter((i) => i.separador).length * 13 + 12;
+  const LARGURA = 208; // w-52
+
+  useEffect(() => {
+    if (!aberto) {
+      setPos(null);
+      return;
+    }
+    const posicionar = () => {
+      const r = btnRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const abaixo = r.bottom + 6;
+      const cabe = abaixo + altura <= window.innerHeight - 8;
+      setPos({
+        top: cabe ? abaixo : Math.max(8, r.top - altura - 6),
+        left: Math.max(8, Math.min(r.right - LARGURA, window.innerWidth - LARGURA - 8)),
+      });
+    };
+    posicionar();
+
+    const clicouFora = (e) => {
+      if (btnRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return;
+      onFechar();
+    };
+    const tecla = (e) => e.key === 'Escape' && onFechar();
+    document.addEventListener('mousedown', clicouFora);
+    document.addEventListener('keydown', tecla);
+    window.addEventListener('scroll', onFechar, true);
+    window.addEventListener('resize', onFechar);
+    return () => {
+      document.removeEventListener('mousedown', clicouFora);
+      document.removeEventListener('keydown', tecla);
+      window.removeEventListener('scroll', onFechar, true);
+      window.removeEventListener('resize', onFechar);
+    };
+  }, [aberto, altura, onFechar]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={onAbrir}
+        title="Ações"
+        aria-haspopup="menu"
+        aria-expanded={aberto}
+        className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border transition-colors ${
+          aberto
+            ? 'border-gray-500 bg-gray-700 text-gray-100'
+            : 'border-transparent hover:bg-gray-700 text-gray-400'
+        }`}
+      >
+        <MoreVertical size={16} />
+      </button>
+
+      {aberto && pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ position: 'fixed', top: pos.top, left: pos.left, width: LARGURA }}
+            className="z-50 rounded-xl border border-gray-700 bg-gray-800 shadow-xl py-1.5"
+          >
+            {itens.map((it) => (
+              <div key={it.label}>
+                {it.separador && <div className="my-1.5 border-t border-gray-700" />}
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    onFechar();
+                    it.onClick();
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-sm font-medium text-left hover:bg-gray-700 transition-colors ${
+                    it.cls || 'text-gray-100'
+                  }`}
+                >
+                  <it.Icon size={15} className="shrink-0" />
+                  {it.label}
+                </button>
+              </div>
+            ))}
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
+// Edita só a data de expiração, sem mexer no status.
+function VencimentoModal({ tenant, onSalvar, onFechar }) {
+  const [data, setData] = useState(
+    tenant.trial_expira_em ? String(tenant.trial_expira_em).slice(0, 10) : ''
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-sm">
+        <h3 className="font-bold text-lg mb-1">Editar vencimento</h3>
+        <p className="text-sm text-gray-400 mb-4">{tenant.nome}</p>
+
+        <label className="block text-xs font-semibold text-gray-400 mb-1.5">
+          Desativar automaticamente em
+        </label>
+        <input
+          type="date"
+          value={data}
+          autoFocus
+          onChange={(e) => setData(e.target.value)}
+          className="w-full h-10 bg-gray-700 border border-gray-600 rounded-lg px-3 text-sm outline-none focus:border-orange-500"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Em branco = sem data de vencimento. O status atual não muda.
+        </p>
+
+        <div className="flex gap-3 justify-end mt-5">
+          <button
+            onClick={onFechar}
+            className="h-10 px-4 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => onSalvar(data)}
+            className="h-10 px-4 bg-orange-500 hover:bg-orange-600 rounded-lg text-sm font-semibold"
+          >
+            Salvar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Mostra a senha temporária UMA vez — depois daqui ela não é mais recuperável.
+function SenhaTemporariaModal({ dados, onFechar }) {
+  const [copiado, setCopiado] = useState(false);
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(dados.senha);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      setCopiado(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-sm">
+        <h3 className="font-bold text-lg mb-1">Senha redefinida</h3>
+        <p className="text-sm text-gray-400 mb-4">
+          {dados.tenant.nome} — acesso de <strong className="text-gray-200">{dados.email}</strong>
+        </p>
+
+        <div className="bg-gray-700 border border-gray-600 rounded-xl p-3 flex items-center justify-between gap-3">
+          <code className="text-lg font-bold tracking-wider break-all">{dados.senha}</code>
+          <button
+            onClick={copiar}
+            title="Copiar senha"
+            className="h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-600 text-gray-300"
+          >
+            {copiado ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+          </button>
+        </div>
+
+        <p className="text-xs text-amber-600 mt-3">
+          Anote agora: essa senha não aparece de novo. A senha antiga e os links de
+          "esqueci minha senha" já não valem mais.
+        </p>
+
+        <button
+          onClick={onFechar}
+          className="mt-5 w-full h-10 bg-orange-500 hover:bg-orange-600 rounded-lg text-sm font-semibold"
+        >
+          Fechar
+        </button>
+      </div>
     </div>
   );
 }
