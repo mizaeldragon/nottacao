@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import BotaoTema from '../components/BotaoTema';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -43,8 +44,10 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex font-sans">
+      <BotaoTema sobreEscuro className="fixed top-4 right-4 z-50" />
+
       {/* Left side */}
-      <div className="hidden lg:flex flex-col w-[480px] bg-white px-12 py-16 justify-between border-r border-slate-200">
+      <div className="hidden lg:flex flex-col w-[480px] bg-superficie px-12 py-16 justify-between border-r border-slate-200">
         <div>
           <Link to="/">
             <img src="/logo.png" alt="nottação" className="h-14 w-auto mb-16" />
@@ -85,13 +88,13 @@ export default function Login() {
 
       {/* Right side */}
       <div className="flex-1 flex items-center justify-center p-6 bg-slate-950">
-        <div className="w-full max-w-md bg-white rounded-[2rem] p-8 sm:p-10 shadow-2xl">
+        <div className="w-full max-w-md bg-superficie rounded-[2rem] p-8 sm:p-10 shadow-2xl">
           <h2 className="text-2xl font-extrabold text-slate-900 mb-2">Bem-vindo de volta</h2>
           <p className="text-sm text-slate-500 mb-8">Entre com suas credenciais para continuar.</p>
 
           {/* Switcher */}
           <div className="flex bg-slate-100 rounded-xl p-1 mb-8">
-            <Link to="/login" className="flex-1 text-center py-2.5 rounded-lg bg-white shadow-sm text-sm font-bold text-slate-900">
+            <Link to="/login" className="flex-1 text-center py-2.5 rounded-lg bg-superficie shadow-sm text-sm font-bold text-slate-900">
               Entrar
             </Link>
             <Link to="/registro" className="flex-1 text-center py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">

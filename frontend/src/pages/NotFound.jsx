@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom';
+import BotaoTema from '../components/BotaoTema';
 import { Home } from 'lucide-react';
 
 export default function NotFound() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-slate-950">
+      <BotaoTema sobreEscuro className="fixed top-4 right-4 z-50" />
+
       <div className="text-center">
         <p className="text-8xl font-extrabold text-blue-600 mb-4">404</p>
         <h1 className="text-2xl font-bold text-white mb-2">Página não encontrada</h1>

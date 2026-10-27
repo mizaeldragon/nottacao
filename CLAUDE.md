@@ -99,6 +99,25 @@ O dono cria/edita o percentual por serviço na aba **Serviços** de Ajustes (`Ca
     (`movimentos_estoque` tipo=saida, motivo='venda') → campos `total_produtos`, `qtd_produtos`,
     `produtos_vendidos[]`, `faturamento_total` (serviços+produtos). `pages/Historico.jsx` mostra
     card "Vendas de Produtos" + tabela "Produtos Vendidos"; `utils/pdf.js` inclui no relatório.
+- **Tema claro/escuro (um único sistema de cor):** nenhuma cor fica escrita na mão nas telas.
+  O `tailwind.config.js` monta cada tom como `rgb(var(--c-<nome>) / <alpha-value>)` e os valores
+  moram em `src/index.css`, em dois blocos: `:root[data-theme='light']` e `:root[data-theme='dark']`
+  (fundo do escuro = **#080c14**). Por isso `bg-orange-500/15` e `bg-gray-700/50` continuam valendo.
+  - **Papel de cada tom (vale nos dois temas):** `gray-900` fundo da página · `800` card ·
+    `700` borda/input/botão secundário · `600` borda de input · `500` texto apagado ·
+    `400` legenda · `300` texto secundário · `100` texto do corpo · `50` título forte.
+    No claro a escala fica invertida; no escuro segue a ordem natural. **Nunca escreva hex em JSX.**
+  - **Páginas públicas** usam a escala `slate-*` (mesma ideia), `bg-superficie` no lugar de `bg-white`
+    e `slate-950` como fundo escuro — esse continua escuro nos dois temas.
+  - **Escolha do tema:** `src/context/TemaContext.jsx` (`useTema()` → `{ tema, escuro, setTema, alternar }`).
+    Padrão = segue o aparelho (`prefers-color-scheme`), e a escolha manual fica em `localStorage.tema`
+    (`'claro'|'escuro'`; apagar = voltar a seguir o aparelho). Dentro do app o botão fica no
+    **menu do usuário**; fora dele é o `components/BotaoTema.jsx` (cabeçalho da Landing e canto
+    superior direito de login/registro/termos/404). Nas telas de acesso use `sobreEscuro`: elas
+    têm fundo escuro nos DOIS temas, e sem isso o botão some no modo claro.
+    Um script no `index.html` aplica `data-theme` **antes da primeira pintura** — sem ele a tela pisca branca.
+  - **Recharts não enxerga classe do Tailwind:** Dashboard e Histórico usam `coresGrafico(escuro)`.
+  - Ao mexer em CSS/HTML, **suba a versão do cache em `public/sw.js`**, senão o PWA serve a cara velha.
 - **Multi-SaaS no mesmo Asaas:** o usuário tem OUTRO SaaS na mesma conta Asaas.
   Por isso todo customer/subscription é criado com `externalReference = "borracharia:<tenant_id>"`,
   e o **webhook ignora** qualquer evento cujo externalReference não comece com `borracharia:`.

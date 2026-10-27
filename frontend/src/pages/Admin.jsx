@@ -281,7 +281,7 @@ function AdminPainel({ onLogout }) {
                         <td className="py-3 pr-4 text-right">
                           {t.trial_expira_em
                             ? <span className={`text-xs font-semibold ${new Date(t.trial_expira_em) < new Date() ? 'text-red-400' : 'text-yellow-400'}`}>{dataBR(t.trial_expira_em)}</span>
-                            : <span className="text-gray-600">—</span>}
+                            : <span className="text-gray-500">—</span>}
                         </td>
                         <td className="py-3 pr-4 text-right text-gray-400">{dataBR(t.created_at)}</td>
                         <td className="py-3 text-right">

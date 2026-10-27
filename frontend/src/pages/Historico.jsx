@@ -3,12 +3,27 @@ import { FileDown, Receipt, Wallet, Wrench, ShoppingBag, TrendingUp } from 'luci
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useTema } from '../context/TemaContext';
 import { brl, dataBR } from '../utils/format';
 import { pdfHistorico } from '../utils/pdf';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { usePaginacao } from '../hooks/usePaginacao';
 import Paginacao from '../components/Paginacao';
 import RangePicker from '../components/RangePicker';
+
+// O Recharts pinta por prop, não por classe do Tailwind — então as cores do
+// gráfico são escolhidas a partir do tema atual.
+function coresGrafico(escuro) {
+  return {
+    linha: escuro ? '#60a5fa' : '#2563eb',
+    grade: escuro ? '#1b2639' : '#e5e7eb',
+    eixo: escuro ? '#94a3b8' : '#64748b',
+    fundoTooltip: escuro ? '#0f1726' : '#ffffff',
+    bordaTooltip: escuro ? '#1b2639' : '#e5e7eb',
+    textoTooltip: escuro ? '#f5f8fc' : '#0f172a',
+  };
+}
+
 
 // Cores para os avatares dos funcionários
 const CORES = ['bg-sky-500', 'bg-orange-500', 'bg-emerald-500', 'bg-purple-500', 'bg-rose-500', 'bg-amber-500'];
@@ -62,6 +77,8 @@ const PERIODOS = [
 ];
 
 export default function Historico() {
+  const { escuro } = useTema();
+  const g = coresGrafico(escuro);
   const { tenant } = useAuth();
   const [dados, setDados] = useState(null);
   const [periodo, setPeriodo] = useState('semana'); // semana | mes | custom
@@ -315,17 +332,17 @@ export default function Historico() {
                   }))}
                   margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                  <YAxis width={48} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={g.grade} vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: g.eixo }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis width={48} tick={{ fontSize: 12, fill: g.eixo }} axisLine={false} tickLine={false} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} />
                   <Tooltip
                     formatter={(v) => [brl(v), 'Faturamento']}
                     labelFormatter={(_, p) => p?.[0]?.payload?.dataCompleta || ''}
-                    contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
-                    labelStyle={{ color: '#0f172a', fontWeight: 600 }}
+                    contentStyle={{ borderRadius: 12, backgroundColor: g.fundoTooltip, border: `1px solid ${g.bordaTooltip}` }}
+                    labelStyle={{ color: g.textoTooltip, fontWeight: 600 }}
                     cursor={{ fill: 'rgba(37,99,235,0.08)' }}
                   />
-                  <Bar dataKey="total" fill="#2563eb" radius={[6, 6, 0, 0]} maxBarSize={48} />
+                  <Bar dataKey="total" fill={g.linha} radius={[6, 6, 0, 0]} maxBarSize={48} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

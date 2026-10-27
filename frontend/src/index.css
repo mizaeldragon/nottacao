@@ -2,6 +2,126 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   TEMAS
+   O tema é escolhido antes da primeira pintura pelo script do index.html, que
+   escreve data-theme="light" | "dark" no <html>. Aqui ficam só os valores.
+   As variáveis guardam os canais "R G B" porque o tailwind.config.js monta
+   rgb(var(--c-x) / <alpha-value>) — é isso que mantém bg-orange-500/15 vivo.
+   ========================================================================== */
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  /* App: escala invertida (900 = branco do fundo, 100 = quase preto do texto) */
+  --c-gray-50: 15 23 42;
+  --c-gray-100: 17 24 39;
+  --c-gray-200: 31 41 55;
+  --c-gray-300: 55 65 81;
+  --c-gray-400: 107 114 128;
+  --c-gray-500: 156 163 175;
+  --c-gray-600: 209 213 219;
+  --c-gray-700: 229 231 235;
+  --c-gray-800: 248 250 252;
+  --c-gray-900: 255 255 255;
+
+  /* Páginas públicas */
+  --c-slate-50: 248 250 252;
+  --c-slate-100: 241 245 249;
+  --c-slate-200: 226 232 240;
+  --c-slate-300: 203 213 225;
+  --c-slate-400: 148 163 184;
+  --c-slate-500: 100 116 139;
+  --c-slate-600: 71 85 105;
+  --c-slate-700: 51 65 85;
+  --c-slate-800: 30 41 59;
+  --c-slate-900: 15 23 42;
+  --c-slate-950: 2 6 23;
+  --c-superficie: 255 255 255;
+  --c-pagina: 255 255 255;
+
+  /* Acento */
+  --c-orange-400: 96 165 250;
+  --c-orange-500: 59 130 246;
+  --c-orange-600: 37 99 235;
+  --grad-acento: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  --grad-acento-hover: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+
+  /* Significado — escurecidas para contrastar com o branco */
+  --c-green-400: 22 163 74;
+  --c-red-400: 220 38 38;
+  --c-emerald-400: 5 150 105;
+  --c-sky-400: 2 132 199;
+  --c-rose-400: 225 29 72;
+  --c-yellow-300: 161 98 7;
+  --c-amber-400: 251 191 36;
+  --c-amber-500: 245 158 11;
+  --c-amber-600: 217 119 6;
+  --c-violet-400: 124 58 237;
+  --c-violet-500: 139 92 246;
+  --c-indigo-500: 99 102 241;
+  --c-indigo-600: 79 70 229;
+
+  /* Barra inferior do mobile: escura nos dois temas */
+  --c-barra: 15 23 42;
+  --c-barra-borda: 30 41 59;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* App: #080c14 é o fundo da página, pedido pelo dono */
+  --c-gray-900: 8 12 20;
+  --c-gray-800: 15 23 38;
+  --c-gray-700: 27 38 57;
+  --c-gray-600: 43 57 80;
+  --c-gray-500: 100 116 139;
+  --c-gray-400: 148 163 184;
+  --c-gray-300: 203 213 225;
+  --c-gray-200: 226 232 240;
+  --c-gray-100: 237 242 249;
+  --c-gray-50: 255 255 255;
+
+  /* Páginas públicas: 950 continua sendo o fundo escuro, agora igual ao do app */
+  --c-slate-950: 8 12 20;
+  --c-slate-900: 245 248 252;
+  --c-slate-800: 226 232 240;
+  --c-slate-700: 199 208 221;
+  --c-slate-600: 173 185 202;
+  --c-slate-500: 148 163 184;
+  --c-slate-400: 141 155 176;
+  --c-slate-300: 124 138 160;
+  --c-slate-200: 30 42 61;
+  --c-slate-100: 20 29 46;
+  --c-slate-50: 15 23 38;
+  --c-superficie: 15 23 38;
+  --c-pagina: 8 12 20;
+
+  --c-orange-400: 147 197 253;
+  --c-orange-500: 59 130 246;
+  --c-orange-600: 96 165 250;
+  --grad-acento: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
+  --grad-acento-hover: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+
+  --c-green-400: 74 222 128;
+  --c-red-400: 248 113 113;
+  --c-emerald-400: 52 211 153;
+  --c-sky-400: 56 189 248;
+  --c-rose-400: 251 113 133;
+  --c-yellow-300: 253 224 71;
+  --c-amber-400: 252 211 77;
+  --c-amber-500: 251 191 36;
+  --c-amber-600: 245 158 11;
+  --c-violet-400: 167 139 250;
+  --c-violet-500: 139 92 246;
+  --c-indigo-500: 129 140 248;
+  --c-indigo-600: 165 180 252;
+
+  --c-barra: 15 23 38;
+  --c-barra-borda: 27 38 57;
+}
+
 html {
   font-size: 15px;
   font-family: 'Inter', system-ui, sans-serif;
@@ -17,6 +137,7 @@ body {
   @apply bg-gray-900 text-gray-100;
   -webkit-tap-highlight-color: transparent;
   font-family: 'Inter', system-ui, sans-serif;
+  transition: background-color 0.2s ease;
 }
 
 /* Remove as setas dos inputs number no mobile/desktop */
@@ -26,15 +147,15 @@ input[type='number']::-webkit-outer-spin-button {
   margin: 0;
 }
 
-/* Fundos sólidos do acento (antes laranja) renderizados como degradê azul.
-   Texto/borda/tint do acento já são azuis via tailwind.config (paleta orange). */
+/* Fundos sólidos do acento renderizados como degradê.
+   Texto/borda/tint do acento já vêm da paleta "orange" (azul) do tailwind.config. */
 @layer utilities {
   .bg-orange-500 {
-    background-image: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    background-image: var(--grad-acento);
     color: #ffffff;
   }
   .hover\:bg-orange-600:hover {
-    background-image: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    background-image: var(--grad-acento-hover);
     color: #ffffff;
   }
 }
@@ -46,42 +167,42 @@ input[type='number']::-webkit-outer-spin-button {
   height: 32px; width: 32px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 8px; cursor: pointer; border: none; background: transparent;
-  color: #374151;
+  color: rgb(var(--c-gray-300));
   transition: background 0.15s;
 }
-.rp-navbtn:hover { background: #e5e7eb; }
+.rp-navbtn:hover { background: rgb(var(--c-gray-700)); }
 .rp-head {
   width: 36px; height: 36px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 11px; color: #9ca3af; font-weight: 500;
+  font-size: 11px; color: rgb(var(--c-gray-500)); font-weight: 500;
 }
 .rp-day {
   height: 36px; width: 36px;
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; border-radius: 8px; cursor: pointer;
-  border: none; background: transparent; color: #111827;
+  border: none; background: transparent; color: rgb(var(--c-gray-100));
   transition: background 0.12s;
 }
-.rp-day:hover { background: #e5e7eb; }
+.rp-day:hover { background: rgb(var(--c-gray-700)); }
 .rp-sel {
-  background: #ffffff !important;
+  background: rgb(var(--c-gray-900)) !important;
   background-image: none !important;
-  color: #1e40af !important;
+  color: rgb(var(--c-orange-600)) !important;
   border-radius: 8px !important;
-  box-shadow: 0 0 0 2px #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgb(var(--c-orange-500)) !important;
   font-weight: 600 !important;
 }
 .rp-sel:hover {
-  background: #eff6ff !important;
+  background: rgb(var(--c-orange-500) / 0.12) !important;
   background-image: none !important;
 }
 .rp-mid {
-  background-color: rgba(59, 130, 246, 0.12) !important;
+  background-color: rgb(var(--c-orange-500) / 0.12) !important;
   border-radius: 8px !important;
-  color: #1e40af !important;
+  color: rgb(var(--c-orange-600)) !important;
 }
 .rp-today {
-  box-shadow: 0 0 0 1.5px #3b82f6;
+  box-shadow: 0 0 0 1.5px rgb(var(--c-orange-500));
   font-weight: 700;
 }
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import BotaoTema from '../components/BotaoTema';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 
@@ -24,7 +25,9 @@ export default function EsqueciSenha() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-slate-950">
-      <div className="w-full max-w-md bg-white rounded-[2rem] p-8 sm:p-10 shadow-2xl">
+      <BotaoTema sobreEscuro className="fixed top-4 right-4 z-50" />
+
+      <div className="w-full max-w-md bg-superficie rounded-[2rem] p-8 sm:p-10 shadow-2xl">
         <Link to="/">
           <img src="/logo.png" alt="nottação" className="h-10 w-auto mb-8" />
         </Link>

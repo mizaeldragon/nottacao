@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import BotaoTema from '../components/BotaoTema';
 import { ArrowLeft } from 'lucide-react';
 
 const COR = '#0096EF';
@@ -15,7 +16,9 @@ function Section({ titulo, children }) {
 export default function Termos() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
-      <header className="bg-white border-b border-slate-200">
+      <BotaoTema className="fixed top-4 right-4 z-50" />
+
+      <header className="bg-superficie border-b border-slate-200">
         <div className="max-w-3xl mx-auto px-4 h-16 flex items-center gap-4">
           <Link to="/" className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors">
             <ArrowLeft size={16} /> Voltar
@@ -35,7 +38,7 @@ export default function Termos() {
           <p className="text-slate-400 text-sm">Última atualização: junho de 2026</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10 space-y-8">
+        <div className="bg-superficie rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10 space-y-8">
           <Section titulo="1. Aceitação dos termos">
             Ao acessar ou utilizar o sistema nottação, você concorda com estes Termos de Uso. Se não concordar com qualquer parte destes termos, não utilize o serviço.
           </Section>

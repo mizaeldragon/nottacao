@@ -8,7 +8,21 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useTema } from '../context/TemaContext';
 import { brl } from '../utils/format';
+
+// O Recharts pinta por prop, não por classe do Tailwind — então as cores do
+// gráfico são escolhidas a partir do tema atual.
+function coresGrafico(escuro) {
+  return {
+    linha: escuro ? '#60a5fa' : '#2563eb',
+    grade: escuro ? '#1b2639' : '#e5e7eb',
+    eixo: escuro ? '#94a3b8' : '#64748b',
+    fundoTooltip: escuro ? '#0f1726' : '#ffffff',
+    bordaTooltip: escuro ? '#1b2639' : '#e5e7eb',
+    textoTooltip: escuro ? '#f5f8fc' : '#0f172a',
+  };
+}
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const FORMAS = { pix: 'PIX', cartao: 'Cartão', dinheiro: 'Dinheiro', misto: 'Misto' };
@@ -32,6 +46,8 @@ function corNome(nome = '') {
 }
 
 export default function Dashboard() {
+  const { escuro } = useTema();
+  const g = coresGrafico(escuro);
   const { tenant } = useAuth();
   const [d, setD] = useState(null);
   const [erro, setErro] = useState('');
@@ -101,21 +117,21 @@ export default function Dashboard() {
                 <AreaChart data={serie7} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="corFat" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                      <stop offset="5%" stopColor={g.linha} stopOpacity={0.35} />
+                      <stop offset="95%" stopColor={g.linha} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                  <YAxis width={40} tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false}
+                  <CartesianGrid strokeDasharray="3 3" stroke={g.grade} vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: g.eixo }} axisLine={false} tickLine={false} />
+                  <YAxis width={40} tick={{ fontSize: 10, fill: g.eixo }} axisLine={false} tickLine={false}
                     tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} />
                   <Tooltip
                     formatter={(v) => [brl(v), 'Faturamento']}
-                    contentStyle={{ borderRadius: 10, border: '1px solid #e5e7eb' }}
-                    labelStyle={{ color: '#0f172a', fontWeight: 600 }}
+                    contentStyle={{ borderRadius: 10, backgroundColor: g.fundoTooltip, border: `1px solid ${g.bordaTooltip}` }}
+                    labelStyle={{ color: g.textoTooltip, fontWeight: 600 }}
                   />
-                  <Area type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={2.5}
-                    fill="url(#corFat)" dot={{ r: 3, fill: '#2563eb' }} activeDot={{ r: 5 }} />
+                  <Area type="monotone" dataKey="total" stroke={g.linha} strokeWidth={2.5}
+                    fill="url(#corFat)" dot={{ r: 3, fill: g.linha }} activeDot={{ r: 5 }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>

@@ -21,7 +21,11 @@ export default function BottomNav() {
   return (
     <nav
       className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t"
-      style={{ backgroundColor: '#0f172a', borderColor: '#1e293b', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      style={{
+        backgroundColor: 'rgb(var(--c-barra))',
+        borderColor: 'rgb(var(--c-barra-borda))',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
     >
       {itens.map(({ to, label, icon: Icon }) => (
         <NavLink

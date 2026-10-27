@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import BotaoTema from '../components/BotaoTema';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import api from '../services/api';
@@ -36,7 +37,7 @@ export default function RedefinirSenha() {
   if (!token) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-950">
-        <div className="w-full max-w-md bg-white rounded-[2rem] p-10 shadow-2xl text-center">
+        <div className="w-full max-w-md bg-superficie rounded-[2rem] p-10 shadow-2xl text-center">
           <p className="text-slate-600 mb-4">Link inválido.</p>
           <Link to="/esqueci-senha" className="text-blue-600 font-semibold hover:underline text-sm">
             Solicitar novo link
@@ -48,7 +49,9 @@ export default function RedefinirSenha() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-slate-950">
-      <div className="w-full max-w-md bg-white rounded-[2rem] p-8 sm:p-10 shadow-2xl">
+      <BotaoTema sobreEscuro className="fixed top-4 right-4 z-50" />
+
+      <div className="w-full max-w-md bg-superficie rounded-[2rem] p-8 sm:p-10 shadow-2xl">
         <Link to="/">
           <img src="/logo.png" alt="nottação" className="h-10 w-auto mb-8" />
         </Link>

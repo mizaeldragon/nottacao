@@ -94,10 +94,7 @@ export default function Financeiro() {
                 // força recarregar mesmo se o período já era o mês atual
                 setTimeout(() => carregar(), 0);
               }}
-              className="h-10 px-4 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors"
-              style={{ backgroundColor: '#1e293b', border: '1px solid #334155', color: '#94a3b8' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#f1f5f9'}
-              onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+              className="h-10 px-4 rounded-lg text-sm font-semibold whitespace-nowrap bg-gray-700 border border-gray-600 text-gray-300 hover:text-gray-50 transition-colors"
             >
               Mês atual
             </button>

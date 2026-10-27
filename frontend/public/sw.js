@@ -1,8 +1,17 @@
 // Service worker simples (stale-while-revalidate) para tornar o app instalável e rápido.
-const CACHE = 'borracharia-v1';
+// Subir a versão descarta o cache antigo — necessário quando muda CSS/HTML
+// (sem isso, na primeira visita depois do deploy o app volta com a cara velha).
+const CACHE = 'borracharia-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener('activate', (e) =>
+  e.waitUntil(
+    caches
+      .keys()
+      .then((nomes) => Promise.all(nomes.filter((n) => n !== CACHE).map((n) => caches.delete(n))))
+      .then(() => self.clients.claim())
+  )
+);
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);

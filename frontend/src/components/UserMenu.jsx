@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, LogOut, ChevronDown } from 'lucide-react';
+import { Settings, LogOut, ChevronDown, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTema } from '../context/TemaContext';
 
 export default function UserMenu() {
   const { tenant, usuario, logout } = useAuth();
+  const { escuro, alternar } = useTema();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -60,6 +62,26 @@ export default function UserMenu() {
             className="w-full flex items-center gap-3 px-4 h-11 text-left text-gray-200 hover:bg-gray-700/60 transition-colors"
           >
             <Settings size={18} className="text-gray-400" /> Configurações
+          </button>
+          <button
+            onClick={alternar}
+            className="w-full flex items-center justify-between gap-3 px-4 h-11 text-left text-gray-200 hover:bg-gray-700/60 transition-colors"
+          >
+            <span className="flex items-center gap-3">
+              {escuro ? <Sun size={18} className="text-gray-400" /> : <Moon size={18} className="text-gray-400" />}
+              Modo {escuro ? 'claro' : 'escuro'}
+            </span>
+            <span
+              className={`w-9 h-5 rounded-full shrink-0 flex items-center px-0.5 transition-colors ${
+                escuro ? 'bg-orange-500' : 'bg-gray-600'
+              }`}
+            >
+              <span
+                className={`w-4 h-4 rounded-full bg-gray-900 shadow transition-transform ${
+                  escuro ? 'translate-x-4' : ''
+                }`}
+              />
+            </span>
           </button>
           <button
             onClick={() => {

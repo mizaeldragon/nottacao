@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import BotaoTema from '../components/BotaoTema';
 import {
   Wrench, DollarSign, ShoppingCart, Users, FileDown, TrendingUp,
   LayoutDashboard, Check, ChevronDown, ArrowRight,
   Smartphone, BarChart2, UserSquare, Home, Tag, HelpCircle, LogIn,
 } from 'lucide-react';
 
-const BG   = '#ffffff';
-const CARD = '#ffffff';
+const BG   = 'rgb(var(--c-pagina))';
+const CARD = 'rgb(var(--c-superficie))';
 const GRAD = 'linear-gradient(135deg, #0096EF 0%, #0A67E2 100%)';
 const COR1 = '#0096EF';
 const COR2 = '#0A67E2';
@@ -81,7 +82,7 @@ function FaqItem({ p, r }) {
 function HeroMockup() {
   return (
     <div className="relative w-full">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-superficie rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
         {/* topo com stats */}
         <div className="bg-slate-50 border-b border-slate-200 px-3 sm:px-4 py-2.5 flex items-center gap-2 sm:gap-4">
           <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">Dashboard</span>
@@ -177,7 +178,7 @@ function HeroMockup() {
 /* ── Caixa mockup ─────────────────────────────────────────── */
 function CaixaMockup() {
   return (
-    <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden w-full max-w-xs sm:max-w-sm mx-auto lg:mx-0">
+    <div className="bg-superficie rounded-2xl shadow-2xl border border-slate-200 overflow-hidden w-full max-w-xs sm:max-w-sm mx-auto lg:mx-0">
       <div className="px-4 sm:px-5 py-4" style={{ background: GRAD }}>
         <p className="text-xs text-white/70 font-medium">Caixa · Hoje</p>
         <p className="text-2xl sm:text-3xl font-bold text-white mt-1">R$ 50,00</p>
@@ -192,7 +193,7 @@ function CaixaMockup() {
           { label: 'Sangria de Gaveta',    grad: false },
         ].map((item) => (
           <div key={item.label} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-slate-50">
-            <span className="text-sm font-medium" style={item.grad ? { color: COR1 } : { color: '#64748b' }}>{item.label}</span>
+            <span className="text-sm font-medium" style={item.grad ? { color: COR1 } : { color: 'rgb(var(--c-slate-500))' }}>{item.label}</span>
             <ArrowRight size={14} className="text-slate-300" />
           </div>
         ))}
@@ -260,7 +261,7 @@ export default function Landing() {
           height:       scrolled ? '72px'               : '64px',
           borderRadius: scrolled ? '1rem'               : '0',
           boxShadow:    scrolled ? '0 8px 40px rgba(0,0,0,0.13)' : 'none',
-          background:   'rgba(255,255,255,0.97)',
+          background:   'rgb(var(--c-superficie) / 0.97)',
           backdropFilter: 'blur(16px)',
           borderBottom: 'none',
         }}
@@ -283,6 +284,7 @@ export default function Landing() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <BotaoTema />
             <Link to="/login" className="hidden lg:block px-3 h-9 leading-9 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
               Entrar
             </Link>
@@ -295,7 +297,7 @@ export default function Landing() {
       </header>
 
       {/* ── Bottom nav mobile/tablet ────────────────────────── */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 flex items-stretch"
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-superficie border-t border-slate-200 flex items-stretch"
            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <BottomNavItem icon={Home}            label="Início"   href="#"                active={activeNav === 'inicio'} />
         <BottomNavItem icon={LayoutDashboard} label="Funções"  href="#funcionalidades" active={activeNav === 'func'}   />
@@ -305,7 +307,7 @@ export default function Landing() {
       </nav>
 
       {/* ── Hero ────────────────────────────────────────────── */}
-      <section className="bg-white">
+      <section className="bg-superficie">
         <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14 lg:py-20 grid lg:grid-cols-[1fr_1.15fr] gap-8 lg:gap-12 items-center">
 
           {/* texto */}
@@ -342,7 +344,7 @@ export default function Landing() {
                     style={{ background: GRAD }}>
                 Assinar agora <ArrowRight size={16} />
               </a>
-              <a href="#funcionalidades" className="h-12 px-6 inline-flex items-center justify-center bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700 font-semibold rounded-xl transition-colors text-sm sm:text-base">
+              <a href="#funcionalidades" className="h-12 px-6 inline-flex items-center justify-center bg-superficie border-2 border-slate-200 hover:border-slate-300 text-slate-700 font-semibold rounded-xl transition-colors text-sm sm:text-base">
                 Ver funcionalidades
               </a>
             </div>
@@ -361,7 +363,7 @@ export default function Landing() {
       </section>
 
       {/* ── Stats bar ───────────────────────────────────────── */}
-      <section className="bg-white py-6 sm:py-8">
+      <section className="bg-superficie py-6 sm:py-8">
         <div className="max-w-6xl mx-auto px-4">
           <div
             className="rounded-2xl sm:rounded-3xl px-8 sm:px-14 py-10 sm:py-14 grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8"
@@ -429,7 +431,7 @@ export default function Landing() {
       </section>
 
       {/* ── Showcase: Caixa ─────────────────────────────────── */}
-      <section className="bg-white py-12 sm:py-16">
+      <section className="bg-superficie py-12 sm:py-16">
         <div className="max-w-6xl mx-auto px-4">
 
           {/* 2 colunas */}
@@ -498,7 +500,7 @@ export default function Landing() {
       </section>
 
       {/* ── Pricing ─────────────────────────────────────────── */}
-      <section id="preco" className="bg-white py-12 sm:py-16 relative overflow-hidden">
+      <section id="preco" className="bg-superficie py-12 sm:py-16 relative overflow-hidden">
         {/* Bolinhas flutuantes */}
         {[
           { size: 10, left: '8%',  delay: '0s',    dur: '7s',  op: 0.18 },
@@ -531,7 +533,7 @@ export default function Landing() {
           </h2>
           <p className="text-slate-500 mb-8 sm:mb-10 text-sm sm:text-base">Tudo liberado. Sem módulos extras. Sem pegadinha.</p>
 
-          <div className="max-w-sm mx-auto bg-white rounded-2xl p-6 sm:p-8 shadow-xl relative"
+          <div className="max-w-sm mx-auto bg-superficie rounded-2xl p-6 sm:p-8 shadow-xl relative"
                style={{ border: `2px solid ${COR1}` }}>
             <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-white text-xs font-bold px-4 py-1 rounded-full whitespace-nowrap"
                   style={{ background: GRAD }}>
@@ -577,7 +579,7 @@ export default function Landing() {
       </section>
 
       {/* ── CTA ─────────────────────────────────────────────── */}
-      <section className="bg-white py-6 sm:py-8">
+      <section className="bg-superficie py-6 sm:py-8">
         <div className="max-w-6xl mx-auto px-4">
           <div className="rounded-2xl sm:rounded-3xl px-8 sm:px-14 py-10 sm:py-14 text-center" style={{ background: GRAD }}>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mb-3">
@@ -587,11 +589,11 @@ export default function Landing() {
               Crie sua conta em menos de 1 minuto e comece a controlar tudo.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <a href="#preco" className="h-12 px-6 sm:px-8 inline-flex items-center justify-center gap-2 bg-white font-bold rounded-xl hover:bg-white/90 transition-colors"
+              <a href="#preco" className="h-12 px-6 sm:px-8 inline-flex items-center justify-center gap-2 bg-superficie font-bold rounded-xl hover:bg-superficie/90 transition-colors"
                     style={{ color: COR2 }}>
                 Assinar agora <ArrowRight size={16} />
               </a>
-              <Link to="/login" className="h-12 px-6 sm:px-8 inline-flex items-center justify-center border-2 border-white/40 text-white font-semibold rounded-xl hover:bg-white/10 transition-colors">
+              <Link to="/login" className="h-12 px-6 sm:px-8 inline-flex items-center justify-center border-2 border-white/40 text-white font-semibold rounded-xl hover:bg-superficie/10 transition-colors">
                 Já tenho conta
               </Link>
             </div>
@@ -600,7 +602,7 @@ export default function Landing() {
       </section>
 
       {/* ── Footer ──────────────────────────────────────────── */}
-      <footer className="bg-white">
+      <footer className="bg-superficie">
         <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10 grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8">
           <div className="col-span-2 sm:col-span-1">
             <img src="/logo.png" alt="nottação" className="h-10 w-auto mb-3" />
