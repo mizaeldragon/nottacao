@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import Logo from '../components/Logo';
 import BotaoTema from '../components/BotaoTema';
 import { ArrowLeft } from 'lucide-react';
 
@@ -24,7 +25,7 @@ export default function Privacidade() {
             <ArrowLeft size={16} /> Voltar
           </Link>
           <div className="w-px h-5 bg-slate-200" />
-          <img src="/logo.png" alt="nottação" className="h-10 w-auto" />
+          <Logo className="h-10 w-auto" />
         </div>
       </header>
 

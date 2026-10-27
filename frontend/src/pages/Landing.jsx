@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Logo from '../components/Logo';
 import { Link } from 'react-router-dom';
 import BotaoTema from '../components/BotaoTema';
 import {
@@ -267,9 +268,7 @@ export default function Landing() {
         }}
       >
         <div className="h-full max-w-6xl mx-auto px-5 flex items-center justify-between gap-4">
-          <img
-            src="/logo.png"
-            alt="nottação"
+          <Logo
             className="shrink-0"
             style={{
               height: scrolled ? '36px' : '48px',
@@ -605,7 +604,7 @@ export default function Landing() {
       <footer className="bg-superficie">
         <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10 grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8">
           <div className="col-span-2 sm:col-span-1">
-            <img src="/logo.png" alt="nottação" className="h-10 w-auto mb-3" />
+            <Logo className="h-10 w-auto mb-3" />
             <p className="text-sm text-slate-500 leading-relaxed">
               Sistema de gestão completo para borracharias.<br className="hidden sm:block" />
               Do serviço ao lucro real.

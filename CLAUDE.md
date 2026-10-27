@@ -116,6 +116,9 @@ O dono cria/edita o percentual por serviço na aba **Serviços** de Ajustes (`Ca
     superior direito de login/registro/termos/404). Nas telas de acesso use `sobreEscuro`: elas
     têm fundo escuro nos DOIS temas, e sem isso o botão some no modo claro.
     Um script no `index.html` aplica `data-theme` **antes da primeira pintura** — sem ele a tela pisca branca.
+  - **Logo:** `components/Logo.jsx` escolhe o arquivo pelo tema. `public/logo-dark.png` é o
+    `logo.png` com a palavra "notta" em branco (o preto puro sumia no escuro); o azul da marca
+    é idêntico nos dois. Gerado invertendo só os pixels sem cor do original.
   - **Recharts não enxerga classe do Tailwind:** Dashboard e Histórico usam `coresGrafico(escuro)`.
   - Ao mexer em CSS/HTML, **suba a versão do cache em `public/sw.js`**, senão o PWA serve a cara velha.
 - **Multi-SaaS no mesmo Asaas:** o usuário tem OUTRO SaaS na mesma conta Asaas.

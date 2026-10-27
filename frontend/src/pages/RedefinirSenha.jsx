@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Logo from '../components/Logo';
 import BotaoTema from '../components/BotaoTema';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
@@ -53,7 +54,7 @@ export default function RedefinirSenha() {
 
       <div className="w-full max-w-md bg-superficie rounded-[2rem] p-8 sm:p-10 shadow-2xl">
         <Link to="/">
-          <img src="/logo.png" alt="nottação" className="h-10 w-auto mb-8" />
+          <Logo className="h-10 w-auto mb-8" />
         </Link>
 
         {sucesso ? (

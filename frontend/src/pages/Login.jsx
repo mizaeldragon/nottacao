@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Logo from '../components/Logo';
 import BotaoTema from '../components/BotaoTema';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
@@ -50,7 +51,7 @@ export default function Login() {
       <div className="hidden lg:flex flex-col w-[480px] bg-superficie px-12 py-16 justify-between border-r border-slate-200">
         <div>
           <Link to="/">
-            <img src="/logo.png" alt="nottação" className="h-14 w-auto mb-16" />
+            <Logo className="h-14 w-auto mb-16" />
           </Link>
           
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">

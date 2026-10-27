@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Logo from '../components/Logo';
 import BotaoTema from '../components/BotaoTema';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
@@ -29,7 +30,7 @@ export default function EsqueciSenha() {
 
       <div className="w-full max-w-md bg-superficie rounded-[2rem] p-8 sm:p-10 shadow-2xl">
         <Link to="/">
-          <img src="/logo.png" alt="nottação" className="h-10 w-auto mb-8" />
+          <Logo className="h-10 w-auto mb-8" />
         </Link>
 
         {enviado ? (

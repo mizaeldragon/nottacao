@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Logo from './Logo';
 import { NavLink } from 'react-router-dom';
 import { Wrench, DollarSign, History, ShoppingCart, PiggyBank, UserSquare, LayoutDashboard, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -31,7 +32,7 @@ export default function Sidebar() {
     <aside className="hidden lg:flex fixed top-0 left-0 z-50 h-full w-64 bg-gray-900 border-r border-gray-700 flex-col">
       {/* Logo */}
       <div className="px-4 pt-5 pb-3">
-        <img src="/logo.png" alt="nottação" className="h-11 w-auto" />
+        <Logo className="h-11 w-auto" />
       </div>
 
       {/* Navegação */}
